@@ -1,18 +1,18 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronDown, Loader2, Settings2 } from "lucide-react";
+import { ChevronDown, Loader2, Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AnalysisDetails } from "@/components/scalping/AnalysisDetails";
-import { NewsTicker } from "@/components/scalping/NewsTicker";
+import { NewsTicker, type TickerItem } from "@/components/scalping/NewsTicker";
+import { OrbitEmblem } from "@/components/scalping/OrbitEmblem";
 import { ProjectionChart } from "@/components/scalping/ProjectionChart";
 import { ShotUploader } from "@/components/scalping/ShotUploader";
+import { TradeSetupDialog } from "@/components/scalping/TradeSetupDialog";
 import { Button } from "@/components/ui/button";
 import { analyzeChartSequence, classifyChartShots } from "@/lib/scalping.functions";
 import {
-  STUDY_DURATIONS,
-  TRADE_DURATIONS,
   type AnalysisResult,
   type ChartShot,
   type Timeframe,
