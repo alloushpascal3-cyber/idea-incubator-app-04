@@ -229,3 +229,66 @@
 @utility animate-pulse-soft {
   animation: pulse-soft 2s ease-in-out infinite;
 }
+
+@keyframes shine-sweep {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+
+@utility swiss-shine {
+  background-image: linear-gradient(
+    100deg,
+    oklch(0.72 0.13 70) 0%,
+    oklch(0.98 0.05 95) 42%,
+    oklch(1 0 0) 50%,
+    oklch(0.9 0.11 95) 58%,
+    oklch(0.68 0.13 65) 100%
+  );
+  background-size: 200% auto;
+  background-clip: text;
+  color: transparent;
+  animation: shine-sweep 6s linear infinite;
+}
+
+@keyframes orbit-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@utility animate-orbit {
+  animation: orbit-slow 18s linear infinite;
+}
+
+@utility animate-orbit-reverse {
+  animation: orbit-slow 26s linear infinite reverse;
+}
+
+@keyframes scan-line {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(1000%);
+  }
+}
+
+@utility animate-scan {
+  animation: scan-line 5s linear infinite;
+}
+
+@utility tv-screen {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-2xl);
+  border: 1px solid var(--color-border);
+  background-image:
+    linear-gradient(180deg, oklch(0.22 0.03 265) 0%, oklch(0.14 0.02 265) 100%);
+  box-shadow:
+    var(--shadow-lux),
+    inset 0 0 60px -20px oklch(0.82 0.14 85 / 25%);
+}
