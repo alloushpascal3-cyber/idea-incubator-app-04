@@ -160,3 +160,72 @@
     color: var(--color-foreground);
   }
 }
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+  }
+  body {
+    background-image: radial-gradient(
+        1200px 600px at 80% -10%,
+        oklch(0.82 0.14 85 / 8%),
+        transparent 60%
+      ),
+      radial-gradient(900px 500px at 0% 100%, oklch(0.7 0.12 250 / 8%), transparent 60%);
+    background-attachment: fixed;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+}
+
+@utility panel {
+  background-image: var(--gradient-lux);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lux);
+}
+
+@utility gold-text {
+  background-image: var(--gradient-gold);
+  background-clip: text;
+  color: transparent;
+}
+
+@utility gold-ring {
+  box-shadow: var(--glow-gold);
+}
+
+@utility hairline {
+  border-bottom: 1px solid var(--color-border);
+}
+
+@keyframes ticker-scroll {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0%);
+  }
+}
+
+@utility animate-ticker {
+  animation: ticker-scroll 48s linear infinite;
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@utility animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
