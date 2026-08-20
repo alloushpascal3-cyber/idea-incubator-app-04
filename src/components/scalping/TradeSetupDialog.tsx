@@ -11,23 +11,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { STUDY_DURATIONS, TRADE_DURATIONS } from "@/lib/scalping-types";
+import { TRADE_DURATIONS } from "@/lib/scalping-types";
 
 type Props = {
   platform: string;
   tradeDuration: number;
-  studyDuration: number;
   onTradeDuration: (v: number) => void;
-  onStudyDuration: (v: number) => void;
   disabled?: boolean;
 };
 
 export function TradeSetupDialog({
   platform,
   tradeDuration,
-  studyDuration,
   onTradeDuration,
-  onStudyDuration,
   disabled,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -44,7 +40,7 @@ export function TradeSetupDialog({
         <DialogHeader>
           <DialogTitle className="gold-text text-lg">تهيئة الصفقة</DialogTitle>
           <DialogDescription className="text-xs">
-            حدّد المنصة ومدة الصفقة ومدة رفع الصور قبل بدء الدراسة
+            حدّد مدة الصفقة بهدوء، ثم ارفع الصور، وبعدها اضغط بدء التهيئة والتحليل
           </DialogDescription>
         </DialogHeader>
 
@@ -62,12 +58,10 @@ export function TradeSetupDialog({
             options={[...TRADE_DURATIONS]}
             onChange={onTradeDuration}
           />
-          <Group
-            label="مدة رفع الصور والدراسة (ثانية)"
-            value={studyDuration}
-            options={[...STUDY_DURATIONS]}
-            onChange={onStudyDuration}
-          />
+          <p className="rounded-lg border border-border bg-input/30 px-3 py-2 text-[11px] leading-5 text-muted-foreground">
+            نافذة التهيئة والتفكير ثابتة على 60 ثانية، تبدأ بعد ضغط زر بدء التهيئة والتحليل، وتصدر
+            الإشارة عند لحظة الصفر.
+          </p>
 
           <Button asChild variant="ghost" size="sm" className="w-full">
             <Link to="/settings">

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronDown, Loader2, Play } from "lucide-react";
+import { ChevronDown, Loader2, Play, Square } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -42,7 +42,20 @@ export const Route = createFileRoute("/")({
   component: Home,
 });
 
-type Phase = "idle" | "collecting" | "classifying" | "analyzing" | "live";
+type Phase = "idle" | "processing" | "waiting" | "live";
+
+const PROCESS_MS = 60_000;
+const SESSION_KEY = "scalping-session-v1";
+
+type Persisted = {
+  phase: Phase;
+  processEnd: number | null;
+  revealAt: number | null;
+  result: AnalysisResult | null;
+  asset: string;
+  tradeDuration: number;
+  shots: ChartShot[];
+};
 
 function guessFromName(name: string): { timeframe: Timeframe | "unknown"; slot: TimeSlot | "unknown" } {
   const lower = name.toLowerCase();
@@ -76,14 +89,17 @@ function Home() {
 
   const [asset, setAsset] = useState("EUR/USD");
   const [tradeDuration, setTradeDuration] = useState(5);
-  const [studyDuration, setStudyDuration] = useState(60);
   const [shots, setShots] = useState<ChartShot[]>([]);
   const [phase, setPhase] = useState<Phase>("idle");
-  const [remaining, setRemaining] = useState(0);
-  const [elapsed, setElapsed] = useState(0);
+  const [processEnd, setProcessEnd] = useState<number | null>(null);
+  const [revealAt, setRevealAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const shotsRef = useRef<ChartShot[]>([]);
+  const pendingRef = useRef<AnalysisResult | null>(null);
+  const restoredRef = useRef(false);
   const runRef = useRef(0);
 
   useEffect(() => {
@@ -91,11 +107,10 @@ function Home() {
   }, [shots]);
 
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || restoredRef.current) return;
     setAsset(settings.assets[0] ?? "EUR/USD");
     setTradeDuration(settings.tradeDuration);
-    setStudyDuration(settings.studyDuration);
-  }, [loaded, settings.assets, settings.tradeDuration, settings.studyDuration]);
+  }, [loaded, settings.assets, settings.tradeDuration]);
 
   const addShots = useCallback(async (files: FileList | null) => {
     if (!files?.length) return;
@@ -128,16 +143,16 @@ function Home() {
   }, [shots]);
 
   const runPipeline = useCallback(
-    async (runId: number) => {
-      let list = shotsRef.current;
+    async (runId: number, source?: ChartShot[]) => {
+      let list = source ?? shotsRef.current;
       if (list.length < 2) {
         setPhase("idle");
-        toast.error("انتهى وقت الرفع دون صور كافية — ارفع صورتين على الأقل");
+        setProcessEnd(null);
+        toast.error("ارفع صورتين على الأقل قبل بدء التهيئة");
         return;
       }
 
       if (settings.autoClassify && list.some((s) => s.timeframe === "unknown" || s.slot === "unknown")) {
-        setPhase("classifying");
         try {
           const { results } = await classify({
             data: { images: list.map((s) => ({ id: s.id, dataUrl: s.dataUrl })) },
@@ -159,12 +174,11 @@ function Home() {
         if (runRef.current !== runId) return;
       }
 
-      setPhase("analyzing");
       try {
         const data = await analyze({
           data: {
             asset,
-            settings: { ...settings, tradeDuration, studyDuration },
+            settings: { ...settings, tradeDuration, studyDuration: 60 },
             images: list.map((s) => ({
               id: s.id,
               timeframe: s.timeframe,
@@ -174,54 +188,130 @@ function Home() {
           },
         });
         if (runRef.current !== runId) return;
-        setResult(data);
-        setElapsed(0);
-        setPhase("live");
+        pendingRef.current = data;
       } catch (error) {
+        if (runRef.current !== runId) return;
         setPhase("idle");
+        setProcessEnd(null);
         toast.error(error instanceof Error ? error.message : "فشل التحليل");
       }
     },
-    [analyze, asset, classify, settings, tradeDuration, studyDuration],
+    [analyze, asset, classify, settings, tradeDuration],
   );
 
-  // countdown for the upload/study window
+  // restore a running session (survives refresh / closing the tab)
   useEffect(() => {
-    if (phase !== "collecting") return;
-    const runId = runRef.current;
-    const timer = setInterval(() => {
-      setRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          void runPipeline(runId);
-          return 0;
+    try {
+      const raw = window.localStorage.getItem(SESSION_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as Partial<Persisted>;
+        restoredRef.current = true;
+        if (saved.asset) setAsset(saved.asset);
+        if (saved.tradeDuration) setTradeDuration(saved.tradeDuration);
+        if (saved.shots?.length) {
+          setShots(saved.shots);
+          shotsRef.current = saved.shots;
         }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [phase, runPipeline]);
+        if (saved.result) {
+          pendingRef.current = saved.result;
+          setResult(saved.result);
+          setRevealAt(saved.revealAt ?? saved.processEnd ?? Date.now());
+          setProcessEnd(saved.processEnd ?? null);
+          setPhase("live");
+        } else if (saved.phase === "processing" || saved.phase === "waiting") {
+          setProcessEnd(saved.processEnd ?? Date.now() + PROCESS_MS);
+          setPhase("processing");
+          runRef.current += 1;
+          void runPipeline(runRef.current, saved.shots ?? []);
+        }
+      }
+    } catch {
+      /* ignore corrupt storage */
+    }
+    setHydrated(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // count-up while the trade window is running
+  // persist every meaningful change until the session is ended
   useEffect(() => {
-    if (phase !== "live") return;
-    const limit = tradeDuration * 60;
-    const timer = setInterval(() => {
-      setElapsed((prev) => (prev >= limit ? limit : prev + 1));
-    }, 1000);
+    if (!hydrated) return;
+    try {
+      const payload: Persisted = {
+        phase,
+        processEnd,
+        revealAt,
+        result,
+        asset,
+        tradeDuration,
+        shots,
+      };
+      window.localStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+    } catch {
+      /* storage full or unavailable */
+    }
+  }, [hydrated, phase, processEnd, revealAt, result, asset, tradeDuration, shots]);
+
+  // single wall-clock ticker (keeps counters exact after a refresh)
+  useEffect(() => {
+    if (phase === "idle") return;
+    const timer = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(timer);
-  }, [phase, tradeDuration]);
+  }, [phase]);
+
+  const remaining =
+    phase === "processing" || phase === "waiting"
+      ? Math.max(0, Math.ceil(((processEnd ?? now) - now) / 1000))
+      : 0;
+  const sessionLimit = tradeDuration * 60;
+  const elapsed =
+    phase === "live" && revealAt ? Math.min(sessionLimit, Math.floor((now - revealAt) / 1000)) : 0;
+
+  // the strike moment: reveal exactly at 00:00 (or as soon as the model answers)
+  useEffect(() => {
+    if (phase !== "processing" && phase !== "waiting") return;
+    if (remaining > 0) return;
+    if (pendingRef.current) {
+      setResult(pendingRef.current);
+      setRevealAt(processEnd ?? Date.now());
+      setPhase("live");
+    } else if (phase !== "waiting") {
+      setPhase("waiting");
+    }
+  }, [phase, remaining, processEnd, now]);
 
   const start = useCallback(() => {
+    if (shotsRef.current.length < 2) {
+      toast.error("ارفع صورتين على الأقل قبل بدء التهيئة");
+      return;
+    }
     runRef.current += 1;
+    const runId = runRef.current;
+    pendingRef.current = null;
     setResult(null);
     setShowDetails(false);
-    setElapsed(0);
-    setRemaining(studyDuration);
-    setPhase("collecting");
-  }, [studyDuration]);
+    setRevealAt(null);
+    setNow(Date.now());
+    setProcessEnd(Date.now() + PROCESS_MS);
+    setPhase("processing");
+    void runPipeline(runId);
+  }, [runPipeline]);
 
-  const busy = phase === "classifying" || phase === "analyzing";
+  const endSession = useCallback(() => {
+    runRef.current += 1;
+    pendingRef.current = null;
+    setPhase("idle");
+    setProcessEnd(null);
+    setRevealAt(null);
+    setResult(null);
+    setShowDetails(false);
+    try {
+      window.localStorage.removeItem(SESSION_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const busy = phase === "processing" || phase === "waiting";
   const dirText =
     result?.direction === "up" ? "صعود" : result?.direction === "down" ? "هبوط" : "لا أفضلية";
   const dirColor =
@@ -233,14 +323,14 @@ function Home() {
       { text: `مدة الصفقة ${tradeDuration} دقيقة`, tone: "info" },
       {
         text:
-          phase === "collecting"
-            ? `نافذة رفع الصور ${clock(remaining)}`
+          phase === "processing" || phase === "waiting"
+            ? `نافذة التهيئة والتفكير ${clock(remaining)}`
             : phase === "live"
-              ? `زمن الصفقة ${clock(elapsed)}`
-              : "بانتظار التهيئة",
+              ? `زمن الجلسة ${clock(elapsed)} / ${clock(sessionLimit)}`
+              : "جاهز — ارفع الصور ثم ابدأ التهيئة",
         tone: phase === "live" ? "bull" : "gold",
       },
-      { text: `الصور: ${shots.length} · ${imagesStatus}`, tone: "muted" },
+      { text: `الصور: ${shots.length} · ${imagesStatus}`, tone: "info" },
     ];
     if (result) {
       items.push(
@@ -248,7 +338,7 @@ function Home() {
         { text: `السعر ${result.currentPrice}`, tone: "info" },
         {
           text: `التوصية ${dirText} ${result.direction === "none" ? "" : `${result.confidence}%`}`,
-          tone: result.direction === "up" ? "bull" : result.direction === "down" ? "bear" : "muted",
+          tone: result.direction === "up" ? "bull" : result.direction === "down" ? "bear" : "gold",
         },
         { text: `السرعة ×${result.speed.ratio}`, tone: "info" },
         {
@@ -265,7 +355,7 @@ function Home() {
           text: `الزمن للهدف ${result.arrival.expectedSeconds}ث / متاح ${result.arrival.availableSeconds}ث`,
           tone: result.arrival.sufficient ? "bull" : "bear",
         },
-        ...result.headlines.map((h): TickerItem => ({ text: h, tone: "muted" })),
+        ...result.headlines.map((h): TickerItem => ({ text: h, tone: "gold" })),
       );
     }
     return items;
@@ -275,6 +365,7 @@ function Home() {
     phase,
     remaining,
     elapsed,
+    sessionLimit,
     shots.length,
     imagesStatus,
     result,
@@ -294,49 +385,58 @@ function Home() {
       <NewsTicker items={ticker} />
 
       <main className="mx-auto max-w-5xl space-y-5 px-4 py-6">
-        <section className="panel gold-ring p-6 text-center">
-          <OrbitEmblem active={phase !== "idle"} />
+        <section className={"panel gold-ring text-center " + (phase === "live" ? "p-4" : "p-6")}>
+          {phase !== "live" && <OrbitEmblem active={phase !== "idle"} />}
 
-          <p className="mt-4 text-xs text-muted-foreground">
-            {phase === "collecting"
-              ? "ارفع صور الشارت الآن — تنتهي الدراسة مع انتهاء العد"
-              : phase === "classifying"
-                ? "جاري تصنيف الصور…"
-                : phase === "analyzing"
-                  ? "جاري التحليل العميق…"
-                  : phase === "live"
-                    ? "الصفقة جارية — عد تصاعدي"
-                    : "ابدأ بتهيئة الصفقة ثم شغّل نافذة الرفع"}
+          <p className={"text-xs text-muted-foreground " + (phase === "live" ? "" : "mt-4")}>
+            {phase === "processing"
+              ? "نافذة التهيئة والتفكير — معالجة الصور وحساب السرعة والتسارع وبناء التوقع"
+              : phase === "waiting"
+                ? "اللحظة الأخيرة — إنهاء بناء التوقع…"
+                : phase === "live"
+                  ? "الجلسة جارية — افتح صفقتك الآن وفق الإشارة الصادرة"
+                  : "ارفع الصور بهدوء، حدّد مدة الصفقة، ثم اضغط بدء التهيئة والتحليل"}
           </p>
 
           <p
             className={
               "mt-1 font-mono text-5xl " +
-              (phase === "live" ? "text-bull" : phase === "collecting" ? "text-primary" : "text-muted-foreground")
+              (phase === "live"
+                ? "text-bull"
+                : busy
+                  ? "text-primary"
+                  : "text-muted-foreground")
             }
           >
-            {phase === "live" ? clock(elapsed) : clock(remaining)}
+            {phase === "live" ? clock(elapsed) : clock(busy ? remaining : PROCESS_MS / 1000)}
           </p>
 
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
             <TradeSetupDialog
               platform={settings.platform}
               tradeDuration={tradeDuration}
-              studyDuration={studyDuration}
               onTradeDuration={setTradeDuration}
-              onStudyDuration={setStudyDuration}
-              disabled={phase === "collecting" || busy}
+              disabled={busy || phase === "live"}
             />
-            <Button onClick={start} size="lg" disabled={phase === "collecting" || busy}>
+            <Button onClick={start} size="lg" disabled={busy || phase === "live"}>
               {busy ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
-              {phase === "collecting" ? "نافذة الرفع مفتوحة…" : "بدء الدراسة"}
+              {busy ? "جاري التهيئة والتفكير…" : "بدء التهيئة والتحليل"}
             </Button>
+            {phase !== "idle" && (
+              <Button variant="secondary" size="lg" onClick={endSession} className="gold-ring">
+                <Square className="size-4" />
+                إنهاء الجلسة
+              </Button>
+            )}
           </div>
         </section>
 
         {result && (
           <section className="tv-screen p-5">
             <div className="animate-scan pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-primary/10 to-transparent" />
+            <div className="pointer-events-none absolute bottom-3 left-3 z-10 opacity-70">
+              <OrbitEmblem active compact />
+            </div>
             <div className="relative">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="text-right">
