@@ -143,16 +143,16 @@ function Home() {
   }, [shots]);
 
   const runPipeline = useCallback(
-    async (runId: number) => {
-      let list = shotsRef.current;
+    async (runId: number, source?: ChartShot[]) => {
+      let list = source ?? shotsRef.current;
       if (list.length < 2) {
         setPhase("idle");
-        toast.error("انتهى وقت الرفع دون صور كافية — ارفع صورتين على الأقل");
+        setProcessEnd(null);
+        toast.error("ارفع صورتين على الأقل قبل بدء التهيئة");
         return;
       }
 
       if (settings.autoClassify && list.some((s) => s.timeframe === "unknown" || s.slot === "unknown")) {
-        setPhase("classifying");
         try {
           const { results } = await classify({
             data: { images: list.map((s) => ({ id: s.id, dataUrl: s.dataUrl })) },
@@ -174,12 +174,11 @@ function Home() {
         if (runRef.current !== runId) return;
       }
 
-      setPhase("analyzing");
       try {
         const data = await analyze({
           data: {
             asset,
-            settings: { ...settings, tradeDuration, studyDuration },
+            settings: { ...settings, tradeDuration, studyDuration: 60 },
             images: list.map((s) => ({
               id: s.id,
               timeframe: s.timeframe,
@@ -189,54 +188,130 @@ function Home() {
           },
         });
         if (runRef.current !== runId) return;
-        setResult(data);
-        setElapsed(0);
-        setPhase("live");
+        pendingRef.current = data;
       } catch (error) {
+        if (runRef.current !== runId) return;
         setPhase("idle");
+        setProcessEnd(null);
         toast.error(error instanceof Error ? error.message : "فشل التحليل");
       }
     },
-    [analyze, asset, classify, settings, tradeDuration, studyDuration],
+    [analyze, asset, classify, settings, tradeDuration],
   );
 
-  // countdown for the upload/study window
+  // restore a running session (survives refresh / closing the tab)
   useEffect(() => {
-    if (phase !== "collecting") return;
-    const runId = runRef.current;
-    const timer = setInterval(() => {
-      setRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          void runPipeline(runId);
-          return 0;
+    try {
+      const raw = window.localStorage.getItem(SESSION_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as Partial<Persisted>;
+        restoredRef.current = true;
+        if (saved.asset) setAsset(saved.asset);
+        if (saved.tradeDuration) setTradeDuration(saved.tradeDuration);
+        if (saved.shots?.length) {
+          setShots(saved.shots);
+          shotsRef.current = saved.shots;
         }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [phase, runPipeline]);
+        if (saved.result) {
+          pendingRef.current = saved.result;
+          setResult(saved.result);
+          setRevealAt(saved.revealAt ?? saved.processEnd ?? Date.now());
+          setProcessEnd(saved.processEnd ?? null);
+          setPhase("live");
+        } else if (saved.phase === "processing" || saved.phase === "waiting") {
+          setProcessEnd(saved.processEnd ?? Date.now() + PROCESS_MS);
+          setPhase("processing");
+          runRef.current += 1;
+          void runPipeline(runRef.current, saved.shots ?? []);
+        }
+      }
+    } catch {
+      /* ignore corrupt storage */
+    }
+    setHydrated(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // count-up while the trade window is running
+  // persist every meaningful change until the session is ended
   useEffect(() => {
-    if (phase !== "live") return;
-    const limit = tradeDuration * 60;
-    const timer = setInterval(() => {
-      setElapsed((prev) => (prev >= limit ? limit : prev + 1));
-    }, 1000);
+    if (!hydrated) return;
+    try {
+      const payload: Persisted = {
+        phase,
+        processEnd,
+        revealAt,
+        result,
+        asset,
+        tradeDuration,
+        shots,
+      };
+      window.localStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+    } catch {
+      /* storage full or unavailable */
+    }
+  }, [hydrated, phase, processEnd, revealAt, result, asset, tradeDuration, shots]);
+
+  // single wall-clock ticker (keeps counters exact after a refresh)
+  useEffect(() => {
+    if (phase === "idle") return;
+    const timer = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(timer);
-  }, [phase, tradeDuration]);
+  }, [phase]);
+
+  const remaining =
+    phase === "processing" || phase === "waiting"
+      ? Math.max(0, Math.ceil(((processEnd ?? now) - now) / 1000))
+      : 0;
+  const sessionLimit = tradeDuration * 60;
+  const elapsed =
+    phase === "live" && revealAt ? Math.min(sessionLimit, Math.floor((now - revealAt) / 1000)) : 0;
+
+  // the strike moment: reveal exactly at 00:00 (or as soon as the model answers)
+  useEffect(() => {
+    if (phase !== "processing" && phase !== "waiting") return;
+    if (remaining > 0) return;
+    if (pendingRef.current) {
+      setResult(pendingRef.current);
+      setRevealAt(processEnd ?? Date.now());
+      setPhase("live");
+    } else if (phase !== "waiting") {
+      setPhase("waiting");
+    }
+  }, [phase, remaining, processEnd, now]);
 
   const start = useCallback(() => {
+    if (shotsRef.current.length < 2) {
+      toast.error("ارفع صورتين على الأقل قبل بدء التهيئة");
+      return;
+    }
     runRef.current += 1;
+    const runId = runRef.current;
+    pendingRef.current = null;
     setResult(null);
     setShowDetails(false);
-    setElapsed(0);
-    setRemaining(studyDuration);
-    setPhase("collecting");
-  }, [studyDuration]);
+    setRevealAt(null);
+    setNow(Date.now());
+    setProcessEnd(Date.now() + PROCESS_MS);
+    setPhase("processing");
+    void runPipeline(runId);
+  }, [runPipeline]);
 
-  const busy = phase === "classifying" || phase === "analyzing";
+  const endSession = useCallback(() => {
+    runRef.current += 1;
+    pendingRef.current = null;
+    setPhase("idle");
+    setProcessEnd(null);
+    setRevealAt(null);
+    setResult(null);
+    setShowDetails(false);
+    try {
+      window.localStorage.removeItem(SESSION_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const busy = phase === "processing" || phase === "waiting";
   const dirText =
     result?.direction === "up" ? "صعود" : result?.direction === "down" ? "هبوط" : "لا أفضلية";
   const dirColor =
