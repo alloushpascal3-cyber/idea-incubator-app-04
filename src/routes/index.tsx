@@ -323,14 +323,14 @@ function Home() {
       { text: `مدة الصفقة ${tradeDuration} دقيقة`, tone: "info" },
       {
         text:
-          phase === "collecting"
-            ? `نافذة رفع الصور ${clock(remaining)}`
+          phase === "processing" || phase === "waiting"
+            ? `نافذة التهيئة والتفكير ${clock(remaining)}`
             : phase === "live"
-              ? `زمن الصفقة ${clock(elapsed)}`
-              : "بانتظار التهيئة",
+              ? `زمن الجلسة ${clock(elapsed)} / ${clock(sessionLimit)}`
+              : "جاهز — ارفع الصور ثم ابدأ التهيئة",
         tone: phase === "live" ? "bull" : "gold",
       },
-      { text: `الصور: ${shots.length} · ${imagesStatus}`, tone: "muted" },
+      { text: `الصور: ${shots.length} · ${imagesStatus}`, tone: "info" },
     ];
     if (result) {
       items.push(
@@ -338,7 +338,7 @@ function Home() {
         { text: `السعر ${result.currentPrice}`, tone: "info" },
         {
           text: `التوصية ${dirText} ${result.direction === "none" ? "" : `${result.confidence}%`}`,
-          tone: result.direction === "up" ? "bull" : result.direction === "down" ? "bear" : "muted",
+          tone: result.direction === "up" ? "bull" : result.direction === "down" ? "bear" : "gold",
         },
         { text: `السرعة ×${result.speed.ratio}`, tone: "info" },
         {
@@ -355,7 +355,7 @@ function Home() {
           text: `الزمن للهدف ${result.arrival.expectedSeconds}ث / متاح ${result.arrival.availableSeconds}ث`,
           tone: result.arrival.sufficient ? "bull" : "bear",
         },
-        ...result.headlines.map((h): TickerItem => ({ text: h, tone: "muted" })),
+        ...result.headlines.map((h): TickerItem => ({ text: h, tone: "gold" })),
       );
     }
     return items;
@@ -365,6 +365,7 @@ function Home() {
     phase,
     remaining,
     elapsed,
+    sessionLimit,
     shots.length,
     imagesStatus,
     result,
@@ -384,43 +385,49 @@ function Home() {
       <NewsTicker items={ticker} />
 
       <main className="mx-auto max-w-5xl space-y-5 px-4 py-6">
-        <section className="panel gold-ring p-6 text-center">
-          <OrbitEmblem active={phase !== "idle"} />
+        <section className={"panel gold-ring text-center " + (phase === "live" ? "p-4" : "p-6")}>
+          {phase !== "live" && <OrbitEmblem active={phase !== "idle"} />}
 
-          <p className="mt-4 text-xs text-muted-foreground">
-            {phase === "collecting"
-              ? "ارفع صور الشارت الآن — تنتهي الدراسة مع انتهاء العد"
-              : phase === "classifying"
-                ? "جاري تصنيف الصور…"
-                : phase === "analyzing"
-                  ? "جاري التحليل العميق…"
-                  : phase === "live"
-                    ? "الصفقة جارية — عد تصاعدي"
-                    : "ابدأ بتهيئة الصفقة ثم شغّل نافذة الرفع"}
+          <p className={"text-xs text-muted-foreground " + (phase === "live" ? "" : "mt-4")}>
+            {phase === "processing"
+              ? "نافذة التهيئة والتفكير — معالجة الصور وحساب السرعة والتسارع وبناء التوقع"
+              : phase === "waiting"
+                ? "اللحظة الأخيرة — إنهاء بناء التوقع…"
+                : phase === "live"
+                  ? "الجلسة جارية — افتح صفقتك الآن وفق الإشارة الصادرة"
+                  : "ارفع الصور بهدوء، حدّد مدة الصفقة، ثم اضغط بدء التهيئة والتحليل"}
           </p>
 
           <p
             className={
               "mt-1 font-mono text-5xl " +
-              (phase === "live" ? "text-bull" : phase === "collecting" ? "text-primary" : "text-muted-foreground")
+              (phase === "live"
+                ? "text-bull"
+                : busy
+                  ? "text-primary"
+                  : "text-muted-foreground")
             }
           >
-            {phase === "live" ? clock(elapsed) : clock(remaining)}
+            {phase === "live" ? clock(elapsed) : clock(busy ? remaining : PROCESS_MS / 1000)}
           </p>
 
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
             <TradeSetupDialog
               platform={settings.platform}
               tradeDuration={tradeDuration}
-              studyDuration={studyDuration}
               onTradeDuration={setTradeDuration}
-              onStudyDuration={setStudyDuration}
-              disabled={phase === "collecting" || busy}
+              disabled={busy || phase === "live"}
             />
-            <Button onClick={start} size="lg" disabled={phase === "collecting" || busy}>
+            <Button onClick={start} size="lg" disabled={busy || phase === "live"}>
               {busy ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
-              {phase === "collecting" ? "نافذة الرفع مفتوحة…" : "بدء الدراسة"}
+              {busy ? "جاري التهيئة والتفكير…" : "بدء التهيئة والتحليل"}
             </Button>
+            {phase !== "idle" && (
+              <Button variant="secondary" size="lg" onClick={endSession} className="gold-ring">
+                <Square className="size-4" />
+                إنهاء الجلسة
+              </Button>
+            )}
           </div>
         </section>
 
