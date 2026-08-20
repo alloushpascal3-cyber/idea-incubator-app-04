@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronDown, Loader2, Play } from "lucide-react";
+import { ChevronDown, Loader2, Play, Square } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -42,7 +42,20 @@ export const Route = createFileRoute("/")({
   component: Home,
 });
 
-type Phase = "idle" | "collecting" | "classifying" | "analyzing" | "live";
+type Phase = "idle" | "processing" | "waiting" | "live";
+
+const PROCESS_MS = 60_000;
+const SESSION_KEY = "scalping-session-v1";
+
+type Persisted = {
+  phase: Phase;
+  processEnd: number | null;
+  revealAt: number | null;
+  result: AnalysisResult | null;
+  asset: string;
+  tradeDuration: number;
+  shots: ChartShot[];
+};
 
 function guessFromName(name: string): { timeframe: Timeframe | "unknown"; slot: TimeSlot | "unknown" } {
   const lower = name.toLowerCase();
@@ -76,14 +89,17 @@ function Home() {
 
   const [asset, setAsset] = useState("EUR/USD");
   const [tradeDuration, setTradeDuration] = useState(5);
-  const [studyDuration, setStudyDuration] = useState(60);
   const [shots, setShots] = useState<ChartShot[]>([]);
   const [phase, setPhase] = useState<Phase>("idle");
-  const [remaining, setRemaining] = useState(0);
-  const [elapsed, setElapsed] = useState(0);
+  const [processEnd, setProcessEnd] = useState<number | null>(null);
+  const [revealAt, setRevealAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const shotsRef = useRef<ChartShot[]>([]);
+  const pendingRef = useRef<AnalysisResult | null>(null);
+  const restoredRef = useRef(false);
   const runRef = useRef(0);
 
   useEffect(() => {
@@ -91,11 +107,10 @@ function Home() {
   }, [shots]);
 
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || restoredRef.current) return;
     setAsset(settings.assets[0] ?? "EUR/USD");
     setTradeDuration(settings.tradeDuration);
-    setStudyDuration(settings.studyDuration);
-  }, [loaded, settings.assets, settings.tradeDuration, settings.studyDuration]);
+  }, [loaded, settings.assets, settings.tradeDuration]);
 
   const addShots = useCallback(async (files: FileList | null) => {
     if (!files?.length) return;
