@@ -96,7 +96,9 @@ function Home() {
   const [now, setNow] = useState(() => Date.now());
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+
   const shotsRef = useRef<ChartShot[]>([]);
   const pendingRef = useRef<AnalysisResult | null>(null);
   const restoredRef = useRef(false);
@@ -189,12 +191,16 @@ function Home() {
         });
         if (runRef.current !== runId) return;
         pendingRef.current = data;
-      } catch (error) {
+        setError(null);
+      } catch (err) {
         if (runRef.current !== runId) return;
+        const message = err instanceof Error ? err.message : "فشل التحليل";
         setPhase("idle");
         setProcessEnd(null);
-        toast.error(error instanceof Error ? error.message : "فشل التحليل");
+        setError(message);
+        toast.error(message);
       }
+
     },
     [analyze, asset, classify, settings, tradeDuration],
   );
@@ -288,7 +294,9 @@ function Home() {
     const runId = runRef.current;
     pendingRef.current = null;
     setResult(null);
+    setError(null);
     setShowDetails(false);
+
     setRevealAt(null);
     setNow(Date.now());
     setProcessEnd(Date.now() + PROCESS_MS);
@@ -303,7 +311,9 @@ function Home() {
     setProcessEnd(null);
     setRevealAt(null);
     setResult(null);
+    setError(null);
     setShowDetails(false);
+
     try {
       window.localStorage.removeItem(SESSION_KEY);
     } catch {
@@ -392,10 +402,13 @@ function Home() {
             {phase === "processing"
               ? "نافذة التهيئة والتفكير — معالجة الصور وحساب السرعة والتسارع وبناء التوقع"
               : phase === "waiting"
-                ? "اللحظة الأخيرة — إنهاء بناء التوقع…"
+                ? "اللحظة الأخيرة — النموذج ما زال يقرأ الصور، ستظهر الإشارة لحظة جهوزها"
                 : phase === "live"
                   ? "الجلسة جارية — افتح صفقتك الآن وفق الإشارة الصادرة"
-                  : "ارفع الصور بهدوء، حدّد مدة الصفقة، ثم اضغط بدء التهيئة والتحليل"}
+                  : error
+                    ? "تعذّر إصدار الإشارة — راجع الرسالة أدناه ثم أعد المحاولة"
+                    : "ارفع الصور بهدوء، حدّد مدة الصفقة، ثم اضغط بدء التهيئة والتحليل"}
+
           </p>
 
           <p
@@ -430,6 +443,19 @@ function Home() {
             )}
           </div>
         </section>
+
+        {error && !result && (
+          <section className="panel border-bear/50 p-4 text-center">
+            <p className="text-xs tracking-widest text-muted-foreground">حالة التحليل</p>
+            <p className="mt-1 text-sm text-bear">{error}</p>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              لم يتم إصدار أي إشارة، ولم تُفتح الجلسة. الصور محفوظة كما هي — اضغط «بدء التهيئة
+              والتحليل» لإعادة المحاولة.
+            </p>
+          </section>
+        )}
+
+
 
         {result && (
           <section className="tv-screen p-5">
