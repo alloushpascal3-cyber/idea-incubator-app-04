@@ -311,7 +311,9 @@ function Home() {
     setProcessEnd(null);
     setRevealAt(null);
     setResult(null);
+    setError(null);
     setShowDetails(false);
+
     try {
       window.localStorage.removeItem(SESSION_KEY);
     } catch {
