@@ -124,14 +124,23 @@ ${SCHEMA}`;
     ...input.images.map((img) => ({ type: "image_url", image_url: { url: img.dataUrl } })),
   ];
 
-  const raw = await callGateway("google/gemini-2.5-pro", [
+  const messages: GatewayMessage[] = [
     {
       role: "system",
       content:
         "أنت محلل سكالبينغ محترف يقرأ صور الشارت. أداة تحليل فقط ولا تنفّذ صفقات. أعد JSON صالحًا فقط بدون أي نص إضافي.",
     },
     { role: "user", content },
-  ]);
+  ];
+
+  let raw = "";
+  try {
+    raw = await callGateway("google/gemini-2.5-pro", messages);
+  } catch (error) {
+    // fallback to the faster model when the primary one fails (rate limit / timeout)
+    if (error instanceof Error && /رصيد/.test(error.message)) throw error;
+    raw = await callGateway("google/gemini-2.5-flash", messages);
+  }
 
   const result = parseJson<AnalysisResult>(raw);
   if (result.confidence < settings.minConfidence) result.direction = "none";
