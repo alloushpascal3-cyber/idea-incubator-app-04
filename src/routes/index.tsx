@@ -96,7 +96,9 @@ function Home() {
   const [now, setNow] = useState(() => Date.now());
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+
   const shotsRef = useRef<ChartShot[]>([]);
   const pendingRef = useRef<AnalysisResult | null>(null);
   const restoredRef = useRef(false);
