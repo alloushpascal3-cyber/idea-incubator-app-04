@@ -444,6 +444,19 @@ function Home() {
           </div>
         </section>
 
+        {error && !result && (
+          <section className="panel border-bear/50 p-4 text-center">
+            <p className="text-xs tracking-widest text-muted-foreground">حالة التحليل</p>
+            <p className="mt-1 text-sm text-bear">{error}</p>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              لم يتم إصدار أي إشارة، ولم تُفتح الجلسة. الصور محفوظة كما هي — اضغط «بدء التهيئة
+              والتحليل» لإعادة المحاولة.
+            </p>
+          </section>
+        )}
+
+
+
         {result && (
           <section className="tv-screen p-5">
             <div className="animate-scan pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-primary/10 to-transparent" />
