@@ -191,12 +191,16 @@ function Home() {
         });
         if (runRef.current !== runId) return;
         pendingRef.current = data;
-      } catch (error) {
+        setError(null);
+      } catch (err) {
         if (runRef.current !== runId) return;
+        const message = err instanceof Error ? err.message : "فشل التحليل";
         setPhase("idle");
         setProcessEnd(null);
-        toast.error(error instanceof Error ? error.message : "فشل التحليل");
+        setError(message);
+        toast.error(message);
       }
+
     },
     [analyze, asset, classify, settings, tradeDuration],
   );
