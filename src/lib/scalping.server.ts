@@ -1,13 +1,69 @@
 import type { AnalysisResult, Settings, TimeSlot, Timeframe } from "./scalping-types";
 
 const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const GOOGLE_API = "https://generativelanguage.googleapis.com/v1beta/models";
 
 type GatewayMessage = {
   role: "system" | "user";
   content: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
 };
 
+// Free path: user's own Google AI Studio key (free tier), when provided.
+function googleModelFor(model: string): string {
+  if (model.includes("pro")) return "gemini-2.5-pro";
+  return "gemini-2.5-flash";
+}
+
+async function callGoogleFree(model: string, messages: GatewayMessage[], apiKey: string): Promise<string> {
+  const systemText = messages
+    .filter((m) => m.role === "system")
+    .map((m) => (typeof m.content === "string" ? m.content : ""))
+    .join("\n");
+
+  const parts: Array<Record<string, unknown>> = [];
+  for (const msg of messages) {
+    if (msg.role !== "user") continue;
+    if (typeof msg.content === "string") {
+      parts.push({ text: msg.content });
+      continue;
+    }
+    for (const block of msg.content) {
+      if (block.type === "text" && block.text) parts.push({ text: block.text });
+      if (block.type === "image_url" && block.image_url?.url) {
+        const url = block.image_url.url;
+        const match = /^data:([^;]+);base64,(.+)$/.exec(url);
+        if (match) parts.push({ inlineData: { mimeType: match[1], data: match[2] } });
+      }
+    }
+  }
+
+  const res = await fetch(`${GOOGLE_API}/${googleModelFor(model)}:generateContent`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts }],
+      ...(systemText ? { systemInstruction: { parts: [{ text: systemText }] } } : {}),
+      generationConfig: { responseMimeType: "application/json" },
+    }),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text();
+    if (res.status === 429) throw new Error("تم تجاوز الحد المجاني للطلبات، حاول بعد قليل");
+    if (res.status === 400 && /API key/i.test(detail)) throw new Error("مفتاح الذكاء الاصطناعي المجاني غير صالح");
+    throw new Error(`فشل التحليل (${res.status}): ${detail.slice(0, 200)}`);
+  }
+
+  const json = (await res.json()) as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  };
+  return json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+}
+
 async function callGateway(model: string, messages: GatewayMessage[]): Promise<string> {
+  const freeKey = process.env["GEMINI_API_KEY"];
+  if (freeKey) return callGoogleFree(model, messages, freeKey);
+
   const apiKey = process.env["LOVABLE_API_KEY"];
   if (!apiKey) throw new Error("AI غير مهيأ");
 
@@ -27,6 +83,7 @@ async function callGateway(model: string, messages: GatewayMessage[]): Promise<s
   const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
   return json.choices?.[0]?.message?.content ?? "";
 }
+
 
 function parseJson<T>(raw: string): T {
   const cleaned = raw
