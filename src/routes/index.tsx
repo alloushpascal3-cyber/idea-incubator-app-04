@@ -294,7 +294,9 @@ function Home() {
     const runId = runRef.current;
     pendingRef.current = null;
     setResult(null);
+    setError(null);
     setShowDetails(false);
+
     setRevealAt(null);
     setNow(Date.now());
     setProcessEnd(Date.now() + PROCESS_MS);
