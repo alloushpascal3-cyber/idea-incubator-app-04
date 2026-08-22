@@ -20,7 +20,15 @@ export function NewsTicker({ items }: Props) {
     <div className="relative overflow-hidden border-y border-border bg-card/70 py-2 backdrop-blur">
       <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-card to-transparent" />
       <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-card to-transparent" />
-      <div className="animate-ticker flex w-max items-center gap-7 whitespace-nowrap">
+      <div
+        className="animate-ticker flex w-max items-center gap-7 whitespace-nowrap"
+        style={{
+          animationDuration: `${Math.max(
+            24,
+            list.reduce((n, i) => n + i.text.length, 0) * 0.42,
+          )}s`,
+        }}
+      >
         {doubled.map((item, i) => {
           const tone = TONE[item.tone ?? "muted"]!;
           return (
