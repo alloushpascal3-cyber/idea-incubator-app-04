@@ -66,6 +66,7 @@
   --color-bear: var(--bear);
   --color-neutral: var(--neutral);
   --color-gold: var(--gold);
+  --color-neon: var(--neon);
   --font-sans: "Tajawal", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Cairo", "Tajawal", ui-sans-serif, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
