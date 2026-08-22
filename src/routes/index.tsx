@@ -271,6 +271,7 @@ function Home() {
   const sessionLimit = tradeDuration * 60;
   const elapsed =
     phase === "live" && revealAt ? Math.min(sessionLimit, Math.floor((now - revealAt) / 1000)) : 0;
+  const sessionOver = phase === "live" && !!revealAt && elapsed >= sessionLimit;
 
   // the strike moment: reveal exactly at 00:00 (or as soon as the model answers)
   useEffect(() => {
