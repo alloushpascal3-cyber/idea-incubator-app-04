@@ -398,18 +398,36 @@ function Home() {
         <section className={"panel gold-ring text-center " + (phase === "live" ? "p-4" : "p-6")}>
           {phase !== "live" && <OrbitEmblem active={phase !== "idle"} />}
 
+          {sessionOver && result && (
+            <div className="mb-4 flex flex-col items-center gap-4 sm:flex-row-reverse sm:items-center">
+              <div className="min-w-0 flex-1">
+                <div className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span>الجدول الزمني لمسار التوقع</span>
+                  <span className="font-mono text-primary">{asset}</span>
+                </div>
+                <ProjectionChart points={result.projection ?? []} direction={result.direction} />
+              </div>
+              <div className="shrink-0">
+                <OrbitEmblem active compact />
+              </div>
+            </div>
+          )}
+
           <p className={"text-xs text-muted-foreground " + (phase === "live" ? "" : "mt-4")}>
             {phase === "processing"
               ? "نافذة التهيئة والتفكير — معالجة الصور وحساب السرعة والتسارع وبناء التوقع"
               : phase === "waiting"
                 ? "اللحظة الأخيرة — النموذج ما زال يقرأ الصور، ستظهر الإشارة لحظة جهوزها"
-                : phase === "live"
-                  ? "الجلسة جارية — افتح صفقتك الآن وفق الإشارة الصادرة"
-                  : error
-                    ? "تعذّر إصدار الإشارة — راجع الرسالة أدناه ثم أعد المحاولة"
-                    : "ارفع الصور بهدوء، حدّد مدة الصفقة، ثم اضغط بدء التهيئة والتحليل"}
+                : sessionOver
+                  ? "انتهى زمن الجلسة — هذا مسار التوقع الكامل كما صدر لحظة الإشارة"
+                  : phase === "live"
+                    ? "الجلسة جارية — افتح صفقتك الآن وفق الإشارة الصادرة"
+                    : error
+                      ? "تعذّر إصدار الإشارة — راجع الرسالة أدناه ثم أعد المحاولة"
+                      : "ارفع الصور بهدوء، حدّد مدة الصفقة، ثم اضغط بدء التهيئة والتحليل"}
 
           </p>
+
 
           <p
             className={
