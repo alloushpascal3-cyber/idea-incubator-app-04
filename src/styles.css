@@ -299,3 +299,11 @@
     var(--shadow-lux),
     inset 0 0 60px -20px oklch(0.82 0.14 85 / 25%);
 }
+
+@utility neon-frame {
+  border: 1px solid oklch(0.86 0.19 150 / 28%);
+  box-shadow:
+    0 0 0 1px oklch(0.86 0.19 150 / 8%),
+    0 0 18px -6px oklch(0.86 0.19 150 / 30%),
+    inset 0 0 22px -14px oklch(0.86 0.19 150 / 45%);
+}
