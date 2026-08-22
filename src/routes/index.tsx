@@ -568,7 +568,7 @@ function Home() {
 
 function Stat({ label, value, tone }: { label: string; value: string; tone: string }) {
   return (
-    <div className="rounded-xl border border-border bg-card/50 px-3 py-2">
+    <div className="neon-frame rounded-xl bg-card/50 px-3 py-2">
       <p className="text-[10px] text-muted-foreground">{label}</p>
       <p className={"font-mono text-sm " + tone}>{value}</p>
     </div>
