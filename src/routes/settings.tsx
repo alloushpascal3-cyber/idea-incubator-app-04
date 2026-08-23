@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { TIMEFRAMES, type Timeframe } from "@/lib/scalping-types";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { AI_PROVIDERS, TIMEFRAMES, type AiProvider, type Timeframe } from "@/lib/scalping-types";
 import { useSettings } from "@/lib/use-settings";
 
 export const Route = createFileRoute("/settings")({
@@ -101,6 +102,65 @@ function SettingsPage() {
                 يُفضّل أن يكون المجموع 100% لضبط درجة الثقة بدقة.
               </p>
             ) : null}
+          </CardContent>
+        </Card>
+
+        <Card className="neon-frame">
+          <CardHeader>
+            <CardTitle className="text-base">مفاتيح الذكاء الاصطناعي والنموذج النشط</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="geminiKey">Google Gemini API Key</Label>
+              <Input
+                id="geminiKey"
+                type="password"
+                dir="ltr"
+                placeholder="AIza..."
+                autoComplete="off"
+                value={settings.geminiKey}
+                onChange={(e) => update({ geminiKey: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="openrouterKey">OpenRouter API Key</Label>
+              <Input
+                id="openrouterKey"
+                type="password"
+                dir="ltr"
+                placeholder="sk-or-v1-..."
+                autoComplete="off"
+                value={settings.openrouterKey}
+                onChange={(e) => update({ openrouterKey: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>النموذج النشط</Label>
+              <RadioGroup
+                value={settings.aiProvider}
+                onValueChange={(v) => update({ aiProvider: v as AiProvider })}
+                className="gap-2"
+              >
+                {AI_PROVIDERS.map((p) => (
+                  <label
+                    key={p.id}
+                    htmlFor={p.id}
+                    className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-secondary/30 p-3"
+                  >
+                    <RadioGroupItem id={p.id} value={p.id} className="mt-0.5" />
+                    <span className="space-y-1">
+                      <span className="block text-sm font-medium">{p.label}</span>
+                      <span className="block font-mono text-[11px] text-muted-foreground" dir="ltr">
+                        {p.note}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </RadioGroup>
+              <p className="text-[11px] text-muted-foreground">
+                المفاتيح تُحفظ على جهازك فقط وتُستخدم لإرسال دفعات الصور الموسومة (00/20/40) للنموذج المختار.
+              </p>
+            </div>
           </CardContent>
         </Card>
 

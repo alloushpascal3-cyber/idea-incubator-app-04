@@ -1,7 +1,26 @@
-import type { AnalysisResult, Settings, TimeSlot, Timeframe } from "./scalping-types";
+import type { AiProvider, AnalysisResult, Settings, TimeSlot, Timeframe } from "./scalping-types";
 
 const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const GOOGLE_API = "https://generativelanguage.googleapis.com/v1beta/models";
+const OPENROUTER_API = "https://openrouter.ai/api/v1/chat/completions";
+
+export type AiConfig = {
+  provider?: AiProvider;
+  geminiKey?: string;
+  openrouterKey?: string;
+};
+
+const OPENROUTER_MODELS: Record<string, string> = {
+  "openrouter-llama-vision": "meta-llama/llama-3.2-11b-vision-instruct:free",
+  "openrouter-pixtral": "mistralai/pixtral-12b:free",
+};
+
+// Numbered batch tagging so speed/acceleration can be computed from ordered shots.
+const BATCH_SECONDS = ["00", "20", "40"];
+export function batchTag(index: number): string {
+  const seconds = BATCH_SECONDS[index] ?? String(index * 20).padStart(2, "0");
+  return `الدفعة ${index + 1}: لقطة الثانية ${seconds}`;
+}
 
 type GatewayMessage = {
   role: "system" | "user";
@@ -10,8 +29,61 @@ type GatewayMessage = {
 
 // Free path: user's own Google AI Studio key (free tier), when provided.
 function googleModelFor(model: string): string {
+  if (model.startsWith("gemini-")) return model;
   if (model.includes("pro")) return "gemini-2.5-pro";
   return "gemini-2.5-flash";
+}
+
+async function callOpenRouter(
+  model: string,
+  messages: GatewayMessage[],
+  apiKey: string,
+): Promise<string> {
+  const res = await fetch(OPENROUTER_API, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({ model, messages, response_format: { type: "json_object" } }),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text();
+    if (res.status === 401) throw new Error("مفتاح OpenRouter غير صالح");
+    if (res.status === 429) throw new Error("تم تجاوز الحد المجاني في OpenRouter، حاول بعد قليل");
+    throw new Error(`فشل التحليل (${res.status}): ${detail.slice(0, 200)}`);
+  }
+
+  const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  return json.choices?.[0]?.message?.content ?? "";
+}
+
+// Routes the request to the provider the user picked in the settings page.
+async function callAi(
+  fallbackModel: string,
+  messages: GatewayMessage[],
+  ai?: AiConfig,
+): Promise<string> {
+  const provider = ai?.provider ?? "gemini-3.7-flash";
+
+  if (provider.startsWith("openrouter") && ai?.openrouterKey) {
+    return callOpenRouter(OPENROUTER_MODELS[provider] ?? OPENROUTER_MODELS["openrouter-pixtral"]!, messages, ai.openrouterKey);
+  }
+
+  if (provider === "gemini-3.7-flash" && ai?.geminiKey) {
+    try {
+      return await callGoogleFree("gemini-3.7-flash", messages, ai.geminiKey);
+    } catch (error) {
+      if (error instanceof Error && /\(404\)/.test(error.message)) {
+        return callGoogleFree("gemini-2.5-flash", messages, ai.geminiKey);
+      }
+      throw error;
+    }
+  }
+
+  if (provider.startsWith("openrouter") && !ai?.openrouterKey) {
+    throw new Error("أضف مفتاح OpenRouter من صفحة الإعدادات");
+  }
+
+  return callGateway(fallbackModel, messages);
 }
 
 async function callGoogleFree(model: string, messages: GatewayMessage[], apiKey: string): Promise<string> {
@@ -96,7 +168,7 @@ function parseJson<T>(raw: string): T {
   return JSON.parse(cleaned.slice(start, end + 1)) as T;
 }
 
-export type ClassifyInput = { images: { id: string; dataUrl: string }[] };
+export type ClassifyInput = { images: { id: string; dataUrl: string }[]; ai?: AiConfig };
 export type ClassifyOutput = {
   results: { id: string; timeframe: Timeframe | "unknown"; slot: TimeSlot | "unknown" }[];
 };
@@ -110,13 +182,20 @@ export async function classifyShots(input: ClassifyInput): Promise<ClassifyOutpu
 أعد JSON فقط بالشكل: {"results":[{"id":"...","timeframe":"5m","slot":"T0"}]}
 المعرفات بالترتيب: ${input.images.map((i) => i.id).join(", ")}`,
     },
-    ...input.images.map((img) => ({ type: "image_url", image_url: { url: img.dataUrl } })),
+    ...input.images.flatMap((img, idx) => [
+      { type: "text", text: batchTag(idx) },
+      { type: "image_url", image_url: { url: img.dataUrl } },
+    ]),
   ];
 
-  const raw = await callGateway("google/gemini-2.5-flash", [
-    { role: "system", content: "أنت محلل شارت خبير. أعد JSON صالحًا فقط بدون أي شرح." },
-    { role: "user", content },
-  ]);
+  const raw = await callAi(
+    "google/gemini-2.5-flash",
+    [
+      { role: "system", content: "أنت محلل شارت خبير. أعد JSON صالحًا فقط بدون أي شرح." },
+      { role: "user", content },
+    ],
+    input.ai,
+  );
   return parseJson<ClassifyOutput>(raw);
 }
 
@@ -124,6 +203,7 @@ export type AnalyzeInput = {
   asset: string;
   settings: Settings;
   images: { id: string; timeframe: string; slot: string; dataUrl: string }[];
+  ai?: AiConfig;
 };
 
 const SCHEMA = `{
@@ -171,14 +251,18 @@ export async function analyzeSequence(input: AnalyzeInput): Promise<AnalysisResu
 11) headlines: 5-7 عناوين عربية قصيرة تصلح لشريط إخباري متحرك تلخّص الاتجاه والثقة والمناطق والسرعة.
 
 الصور مع تصنيفها:
-${input.images.map((i, idx) => `${idx + 1}) الفريم ${i.timeframe} — الزمن ${i.slot}`).join("\n")}
+${input.images.map((i, idx) => `${batchTag(idx)} — الفريم ${i.timeframe} — الزمن ${i.slot}`).join("\n")}
+كل صورة مرفقة مسبوقة بوسم دفعتها المرقّم؛ استخدم هذه الأوسمة الزمنية للمقارنة بين اللقطات وحساب السرعة والتسارع.
 
 أعد JSON صالحًا فقط بهذا الشكل:
 ${SCHEMA}`;
 
   const content: GatewayMessage["content"] = [
     { type: "text", text: prompt },
-    ...input.images.map((img) => ({ type: "image_url", image_url: { url: img.dataUrl } })),
+    ...input.images.flatMap((img, idx) => [
+      { type: "text", text: batchTag(idx) },
+      { type: "image_url", image_url: { url: img.dataUrl } },
+    ]),
   ];
 
   const messages: GatewayMessage[] = [
@@ -192,11 +276,11 @@ ${SCHEMA}`;
 
   let raw = "";
   try {
-    raw = await callGateway("google/gemini-2.5-pro", messages);
+    raw = await callAi("google/gemini-2.5-pro", messages, input.ai);
   } catch (error) {
     // fallback to the faster model when the primary one fails (rate limit / timeout)
-    if (error instanceof Error && /رصيد/.test(error.message)) throw error;
-    raw = await callGateway("google/gemini-2.5-flash", messages);
+    if (error instanceof Error && /(رصيد|مفتاح)/.test(error.message)) throw error;
+    raw = await callAi("google/gemini-2.5-flash", messages, input.ai);
   }
 
   const result = parseJson<AnalysisResult>(raw);

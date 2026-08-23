@@ -157,7 +157,14 @@ function Home() {
       if (settings.autoClassify && list.some((s) => s.timeframe === "unknown" || s.slot === "unknown")) {
         try {
           const { results } = await classify({
-            data: { images: list.map((s) => ({ id: s.id, dataUrl: s.dataUrl })) },
+            data: {
+              images: list.map((s) => ({ id: s.id, dataUrl: s.dataUrl })),
+              ai: {
+                provider: settings.aiProvider,
+                geminiKey: settings.geminiKey,
+                openrouterKey: settings.openrouterKey,
+              },
+            },
           });
           list = list.map((s) => {
             const hit = results.find((r) => r.id === s.id);
@@ -181,6 +188,11 @@ function Home() {
           data: {
             asset,
             settings: { ...settings, tradeDuration, studyDuration: 60 },
+            ai: {
+              provider: settings.aiProvider,
+              geminiKey: settings.geminiKey,
+              openrouterKey: settings.openrouterKey,
+            },
             images: list.map((s) => ({
               id: s.id,
               timeframe: s.timeframe,
