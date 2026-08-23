@@ -8,7 +8,7 @@ function dirClass(d: Direction) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="panel p-4">
+    <section className="panel neon-frame p-4">
       <h3 className="mb-3 text-sm font-semibold text-primary">{title}</h3>
       {children}
     </section>
