@@ -13,7 +13,7 @@ type Props = {
 
 export function ShotUploader({ shots, onAdd, onRemove, onPatch, disabled }: Props) {
   return (
-    <div className="panel p-4">
+    <div className="panel neon-frame p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-sm font-semibold">صور الشارت</h3>

@@ -22,7 +22,7 @@ export function ProjectionChart({ points, direction }: Props) {
   const labeled = points.filter((p) => p.label);
 
   return (
-    <div className="panel p-4">
+    <div className="panel neon-frame p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold">مسار السعر المتوقع</h3>
         <span className="text-[11px] text-muted-foreground">

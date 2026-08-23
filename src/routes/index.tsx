@@ -396,7 +396,7 @@ function Home() {
       <NewsTicker items={ticker} />
 
       <main className="mx-auto max-w-5xl space-y-5 px-4 py-6">
-        <section className={"panel gold-ring text-center " + (phase === "live" ? "p-4" : "p-6")}>
+        <section className={"panel neon-frame gold-ring text-center " + (phase === "live" ? "p-4" : "p-6")}>
           {phase !== "live" && <OrbitEmblem active={phase !== "idle"} />}
 
           {sessionOver && result && (
@@ -477,7 +477,7 @@ function Home() {
 
 
         {result && (
-          <section className="tv-screen p-5">
+          <section className="tv-screen neon-frame p-5">
             <div className="animate-scan pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-primary/10 to-transparent" />
             <div className="pointer-events-none absolute bottom-3 left-3 z-10 opacity-70">
               <OrbitEmblem active compact />
