@@ -21,7 +21,33 @@ export type Weights = {
   indicators: number;
 };
 
+export const AI_PROVIDERS = [
+  {
+    id: "gemini-3.7-flash",
+    label: "Google Gemini 3.7 Flash",
+    note: "يتصل عبر مفتاح Google لاستدعاء أحدث نموذج رؤية",
+    key: "gemini",
+  },
+  {
+    id: "openrouter-llama-vision",
+    label: "OpenRouter — Llama 3.2 Vision",
+    note: "meta-llama/llama-3.2-11b-vision-instruct:free",
+    key: "openrouter",
+  },
+  {
+    id: "openrouter-pixtral",
+    label: "OpenRouter — Mistral Pixtral 12B",
+    note: "mistralai/pixtral-12b:free — قراءة أرقام دقيقة",
+    key: "openrouter",
+  },
+] as const;
+
+export type AiProvider = (typeof AI_PROVIDERS)[number]["id"];
+
 export type Settings = {
+  aiProvider: AiProvider;
+  geminiKey: string;
+  openrouterKey: string;
   platform: string;
   assets: string[];
   timeframes: Timeframe[];
@@ -40,6 +66,9 @@ export type Settings = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
+  aiProvider: "gemini-3.7-flash",
+  geminiKey: "",
+  openrouterKey: "",
   platform: "ExpertOption",
   assets: [...ASSETS_DEFAULT],
   timeframes: ["1m", "5m", "15m"],
