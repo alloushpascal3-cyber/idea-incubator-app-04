@@ -149,13 +149,10 @@ export async function withGeminiKeyRotation<T>(
 
   if (rows.length === 0) throw new Error("GEMINI_NO_KEYS");
 
-  let lastError: unknown = new Error("GEMINI_ALL_EXHAUSTED");
   for (const row of rows) {
     try {
-      const value = await attempt(row.api_key);
-      return value;
+      return await attempt(row.api_key);
     } catch (error) {
-      lastError = error;
       if (isQuotaError(error)) {
         await markStatus(row.id, "quota", QUOTA_COOLDOWN_MINUTES);
         continue;
@@ -168,8 +165,6 @@ export async function withGeminiKeyRotation<T>(
     }
   }
   throw new Error("GEMINI_ALL_EXHAUSTED");
-  // eslint-disable-next-line no-unreachable
-  void lastError;
 }
 
 export async function hasStoredKeys(): Promise<boolean> {
