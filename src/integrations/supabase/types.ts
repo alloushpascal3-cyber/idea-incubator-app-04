@@ -14,7 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      gemini_keys: {
+        Row: {
+          api_key: string
+          cooldown_until: string | null
+          created_at: string
+          id: string
+          label: string | null
+          last_error: string | null
+          masked: string
+          slot: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          api_key: string
+          cooldown_until?: string | null
+          created_at?: string
+          id?: string
+          label?: string | null
+          last_error?: string | null
+          masked: string
+          slot: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          api_key?: string
+          cooldown_until?: string | null
+          created_at?: string
+          id?: string
+          label?: string | null
+          last_error?: string | null
+          masked?: string
+          slot?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
