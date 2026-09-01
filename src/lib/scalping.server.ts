@@ -68,14 +68,26 @@ async function callAi(
     return callOpenRouter(OPENROUTER_MODELS[provider] ?? OPENROUTER_MODELS["openrouter-pixtral"]!, messages, ai.openrouterKey);
   }
 
-  if (provider === "gemini-3.7-flash" && ai?.geminiKey) {
-    try {
-      return await callGoogleFree("gemini-3.7-flash", messages, ai.geminiKey);
-    } catch (error) {
-      if (error instanceof Error && /\(404\)/.test(error.message)) {
-        return callGoogleFree("gemini-2.5-flash", messages, ai.geminiKey);
+  if (provider === "gemini-3.7-flash") {
+    const attempt = async (key: string) => {
+      try {
+        return await callGoogleFree("gemini-3.7-flash", messages, key);
+      } catch (error) {
+        if (error instanceof Error && /\(404\)/.test(error.message)) {
+          return callGoogleFree("gemini-2.5-flash", messages, key);
+        }
+        throw error;
       }
-      throw error;
+    };
+
+    if (ai?.geminiKey) return attempt(ai.geminiKey);
+
+    // Managed keys stored server-side: each key is tried at most once per request.
+    const { withGeminiKeyRotation } = await import("./gemini-keys.server");
+    try {
+      return await withGeminiKeyRotation(attempt);
+    } catch (error) {
+      if (!(error instanceof Error) || !/GEMINI_NO_KEYS/.test(error.message)) throw error;
     }
   }
 
