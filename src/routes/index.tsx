@@ -8,9 +8,11 @@ import { AnalysisDetails } from "@/components/scalping/AnalysisDetails";
 import { NewsTicker, type TickerItem } from "@/components/scalping/NewsTicker";
 import { OrbitEmblem } from "@/components/scalping/OrbitEmblem";
 import { ProjectionChart } from "@/components/scalping/ProjectionChart";
+import { ProjectionTable } from "@/components/scalping/ProjectionTable";
 import { ShotUploader } from "@/components/scalping/ShotUploader";
 import { TradeSetupDialog } from "@/components/scalping/TradeSetupDialog";
 import { Button } from "@/components/ui/button";
+import { friendlyText } from "@/lib/ai-errors";
 import { analyzeChartSequence, classifyChartShots } from "@/lib/scalping.functions";
 import {
   type AnalysisResult,
@@ -206,7 +208,7 @@ function Home() {
         setError(null);
       } catch (err) {
         if (runRef.current !== runId) return;
-        const message = err instanceof Error ? err.message : "فشل التحليل";
+        const message = friendlyText(err);
         setPhase("idle");
         setProcessEnd(null);
         setError(message);
@@ -414,11 +416,11 @@ function Home() {
           {sessionOver && result && (
             <div className="mb-4 flex flex-col items-center gap-4 sm:flex-row-reverse sm:items-center">
               <div className="min-w-0 flex-1">
-                <div className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
-                  <span>الجدول الزمني لمسار التوقع</span>
-                  <span className="font-mono text-primary">{asset}</span>
-                </div>
-                <ProjectionChart points={result.projection ?? []} direction={result.direction} />
+                <ProjectionTable
+                  points={result.projection ?? []}
+                  direction={result.direction}
+                  asset={asset}
+                />
               </div>
               <div className="shrink-0">
                 <OrbitEmblem active compact />
