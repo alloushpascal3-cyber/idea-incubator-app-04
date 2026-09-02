@@ -121,28 +121,51 @@ async function callGoogleFree(model: string, messages: GatewayMessage[], apiKey:
     }
   }
 
-  const res = await fetch(`${GOOGLE_API}/${googleModelFor(model)}:generateContent`, {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts }],
-      ...(systemText ? { systemInstruction: { parts: [{ text: systemText }] } } : {}),
-      generationConfig: { responseMimeType: "application/json" },
-    }),
+  const body = JSON.stringify({
+    contents: [{ role: "user", parts }],
+    ...(systemText ? { systemInstruction: { parts: [{ text: systemText }] } } : {}),
+    generationConfig: { responseMimeType: "application/json" },
   });
 
-  if (!res.ok) {
+  // Transient 5xx (model overloaded) → bounded retries with backoff, no timeout.
+  const MAX_ATTEMPTS = 4;
+  let lastDetail = "";
+  let lastStatus = 0;
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const res = await fetch(`${GOOGLE_API}/${googleModelFor(model)}:generateContent`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
+      body,
+    });
+
+    if (res.ok) {
+      const json = (await res.json()) as {
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      };
+      return json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+    }
+
     const detail = await res.text();
+    lastDetail = detail;
+    lastStatus = res.status;
+
     if (res.status === 429) throw new Error("تم تجاوز الحد المجاني للطلبات، حاول بعد قليل");
     if (res.status === 400 && /API key/i.test(detail)) throw new Error("مفتاح الذكاء الاصطناعي المجاني غير صالح");
-    throw new Error(`فشل التحليل (${res.status}): ${detail.slice(0, 200)}`);
+    if (res.status < 500) break;
+
+    if (attempt < MAX_ATTEMPTS - 1) {
+      const delay = 1500 * 2 ** attempt + Math.floor(Math.random() * 500);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
   }
 
-  const json = (await res.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  };
-  return json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+  if (lastStatus >= 500) {
+    throw new Error(`فشل التحليل (${lastStatus}): النموذج مزدحم حالياً، أعد المحاولة بعد قليل`);
+  }
+  throw new Error(`فشل التحليل (${lastStatus}): ${lastDetail.slice(0, 200)}`);
 }
+
 
 async function callGateway(model: string, messages: GatewayMessage[]): Promise<string> {
   const freeKey = process.env["GEMINI_API_KEY"];
