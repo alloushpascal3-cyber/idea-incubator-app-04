@@ -307,3 +307,19 @@
     0 0 18px -6px oklch(0.86 0.19 150 / 30%),
     inset 0 0 22px -14px oklch(0.86 0.19 150 / 45%);
 }
+
+@utility tri-shine {
+  background-image: linear-gradient(
+    100deg,
+    var(--color-primary) 0%,
+    oklch(0.72 0.16 250) 28%,
+    oklch(0.86 0.19 150) 50%,
+    oklch(0.78 0.17 55) 72%,
+    var(--color-primary) 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shine-sweep 7s linear infinite;
+}
