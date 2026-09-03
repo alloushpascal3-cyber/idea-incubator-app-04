@@ -264,7 +264,7 @@ const SCHEMA = `{
 }`;
 
 export async function analyzeSequence(input: AnalyzeInput): Promise<AnalysisResult> {
-  const { asset, settings } = input;
+  const { settings } = input;
   const w = settings.weights;
 
   const prompt = `أنت نظام تحليل سكالبينغ تحليلي بحت (لا تنفيذ صفقات، لا شراء ولا بيع).
