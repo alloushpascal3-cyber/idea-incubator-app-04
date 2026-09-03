@@ -342,9 +342,14 @@ function Home() {
   const dirColor =
     result?.direction === "up" ? "text-bull" : result?.direction === "down" ? "text-bear" : "text-neutral";
 
+  const AUTO = "يُحدد تلقائياً";
+  const detected = (v?: string) => (v && v !== "unknown" ? v : "");
+  const assetText = detected(result?.detectedAsset) || (result ? asset : AUTO);
+  const platformText = detected(result?.detectedPlatform) || AUTO;
+
   const ticker = useMemo<TickerItem[]>(() => {
     const items: TickerItem[] = [
-      { text: `المنصة ${settings.platform}`, tone: "gold" },
+      { text: `المنصة ${platformText}`, tone: "gold" },
       { text: `مدة الصفقة ${tradeDuration} دقيقة`, tone: "info" },
       {
         text:
@@ -359,7 +364,7 @@ function Home() {
     ];
     if (result) {
       items.push(
-        { text: `الأصل ${asset}`, tone: "gold" },
+        { text: `الأصل ${assetText}`, tone: "gold" },
         { text: `السعر ${result.currentPrice}`, tone: "info" },
         {
           text: `التوصية ${dirText} ${result.direction === "none" ? "" : `${result.confidence}%`}`,
@@ -385,7 +390,8 @@ function Home() {
     }
     return items;
   }, [
-    settings.platform,
+    platformText,
+    assetText,
     tradeDuration,
     phase,
     remaining,
@@ -394,7 +400,6 @@ function Home() {
     shots.length,
     imagesStatus,
     result,
-    asset,
     dirText,
   ]);
 
@@ -419,7 +424,7 @@ function Home() {
                 <ProjectionTable
                   points={result.projection ?? []}
                   direction={result.direction}
-                  asset={asset}
+                  asset={assetText}
                 />
               </div>
               <div className="shrink-0">
@@ -459,7 +464,7 @@ function Home() {
 
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
             <TradeSetupDialog
-              platform={settings.platform}
+              platform={platformText}
               tradeDuration={tradeDuration}
               onTradeDuration={setTradeDuration}
               disabled={busy || phase === "live"}
@@ -500,7 +505,7 @@ function Home() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="text-right">
                   <p className="text-[11px] tracking-widest text-muted-foreground">الأصل المقروء</p>
-                  <p className="gold-text text-2xl font-bold sm:text-3xl">{asset}</p>
+                  <p className="gold-text text-2xl font-bold sm:text-3xl">{assetText}</p>
                 </div>
                 <div className="text-left">
                   <p className="text-[11px] tracking-widest text-muted-foreground">التوصية</p>
