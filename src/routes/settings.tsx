@@ -114,7 +114,7 @@ function SectionActions({
         onClick={handleSave}
         className={
           done
-            ? "border border-bull bg-bull/20 text-bull shadow-[0_0_18px_hsl(var(--bull)/0.45)] hover:bg-bull/25"
+            ? "border border-bull bg-bull/20 text-bull hover:bg-bull/25"
             : ""
         }
       >
