@@ -113,6 +113,8 @@ export type AnalysisResult = {
   direction: Direction;
   confidence: number;
   summary: string;
+  detectedAsset?: string;
+  detectedPlatform?: string;
   currentPrice: string;
   structure: "correction" | "reversal" | "trend-continuation" | "unclear";
   structureNote: string;
