@@ -245,6 +245,8 @@ const SCHEMA = `{
   "direction": "up|down|none",
   "confidence": 0-100,
   "summary": "سطر واحد",
+  "detectedAsset": "الزوج كما هو مكتوب في الصورة أو unknown",
+  "detectedPlatform": "اسم المنصة كما يظهر في الصورة أو unknown",
   "currentPrice": "نص",
   "structure": "correction|reversal|trend-continuation|unclear",
   "structureNote": "نص",
@@ -262,11 +264,11 @@ const SCHEMA = `{
 }`;
 
 export async function analyzeSequence(input: AnalyzeInput): Promise<AnalysisResult> {
-  const { asset, settings } = input;
+  const { settings } = input;
   const w = settings.weights;
 
   const prompt = `أنت نظام تحليل سكالبينغ تحليلي بحت (لا تنفيذ صفقات، لا شراء ولا بيع).
-الأصل: ${asset} | المنصة: ${settings.platform}
+الزوج واسم المنصة غير مثبّتين: اقرأهما من نفس الصور (عنوان الشارت وشعار المنصة) وأعدهما في detectedAsset و detectedPlatform، وإن لم يظهرا بوضوح فاستخدم "unknown".
 مدة الصفقة: ${settings.tradeDuration} دقيقة | مدة الدراسة: ${settings.studyDuration} ثانية
 الفريمات المطلوبة: ${settings.timeframes.join(", ")}
 عدد الشموع لحساب السرعة: ${settings.speedCandles}

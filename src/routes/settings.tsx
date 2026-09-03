@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, RotateCcw, Save } from "lucide-react";
+import { ArrowRight, Check, RotateCcw, Save } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { GeminiKeysPanel } from "@/components/scalping/GeminiKeysPanel";
@@ -65,6 +66,20 @@ function SectionActions({
   onReset: () => void;
   resetLabel: string;
 }) {
+  const [done, setDone] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
+
+  const handleSave = () => {
+    onSave();
+    setDone(true);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setDone(false), 2000);
+  };
+
   return (
     <div className="hairline mt-5 flex flex-wrap items-center justify-end gap-2 pt-3">
       <AlertDialog>
@@ -94,9 +109,17 @@ function SectionActions({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <Button size="sm" onClick={onSave}>
-        <Save className="size-4" />
-        حفظ
+      <Button
+        size="sm"
+        onClick={handleSave}
+        className={
+          done
+            ? "border border-bull bg-bull/20 text-bull hover:bg-bull/25"
+            : ""
+        }
+      >
+        {done ? <Check className="size-4" /> : <Save className="size-4" />}
+        {done ? "تم الحفظ" : "حفظ"}
       </Button>
     </div>
   );
@@ -280,14 +303,9 @@ function SettingsPage() {
             </AccordionTrigger>
             <AccordionContent>
               <div className="space-y-5">
-                <div className="space-y-2">
-                  <Label htmlFor="platform">المنصة</Label>
-                  <Input
-                    id="platform"
-                    value={settings.platform}
-                    onChange={(e) => update({ platform: e.target.value })}
-                  />
-                </div>
+                <p className="rounded-lg border border-border bg-input/30 px-3 py-2 text-[11px] leading-5 text-muted-foreground">
+                  المنصة والزوج غير مثبّتين — يقرأهما التطبيق تلقائياً من صور الشارت أثناء التحليل.
+                </p>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span>الحد الأدنى للثقة</span>
@@ -347,7 +365,6 @@ function SettingsPage() {
                 onSave={() => saved("الإعدادات العامة")}
                 onReset={() =>
                   update({
-                    platform: DEFAULT_SETTINGS.platform,
                     minConfidence: DEFAULT_SETTINGS.minConfidence,
                     speedCandles: DEFAULT_SETTINGS.speedCandles,
                     autoClassify: DEFAULT_SETTINGS.autoClassify,
