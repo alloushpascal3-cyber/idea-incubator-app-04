@@ -415,88 +415,9 @@ function Home() {
       <NewsTicker items={ticker} />
 
       <main className="mx-auto max-w-5xl space-y-5 px-4 py-6">
-        <section className={"panel neon-frame gold-ring text-center " + (phase === "live" ? "p-4" : "p-6")}>
-          {phase !== "live" && <OrbitEmblem active={phase !== "idle"} />}
-
-          {sessionOver && result && (
-            <div className="mb-4 flex flex-col items-center gap-4 sm:flex-row-reverse sm:items-center">
-              <div className="min-w-0 flex-1">
-                <ProjectionTable
-                  points={result.projection ?? []}
-                  direction={result.direction}
-                  asset={assetText}
-                />
-              </div>
-              <div className="shrink-0">
-                <OrbitEmblem active compact />
-              </div>
-            </div>
-          )}
-
-          <p className={"text-xs text-muted-foreground " + (phase === "live" ? "" : "mt-4")}>
-            {phase === "processing"
-              ? "نافذة التهيئة والتفكير — معالجة الصور وحساب السرعة والتسارع وبناء التوقع"
-              : phase === "waiting"
-                ? "اللحظة الأخيرة — النموذج ما زال يقرأ الصور، ستظهر الإشارة لحظة جهوزها"
-                : sessionOver
-                  ? "انتهى زمن الجلسة — هذا مسار التوقع الكامل كما صدر لحظة الإشارة"
-                  : phase === "live"
-                    ? "الجلسة جارية — افتح صفقتك الآن وفق الإشارة الصادرة"
-                    : error
-                      ? "تعذّر إصدار الإشارة — راجع الرسالة أدناه ثم أعد المحاولة"
-                      : "ارفع الصور بهدوء، حدّد مدة الصفقة، ثم اضغط بدء التهيئة والتحليل"}
-
-          </p>
-
-
-          <p
-            className={
-              "mt-1 font-mono text-5xl " +
-              (phase === "live"
-                ? "text-bull"
-                : busy
-                  ? "text-primary"
-                  : "text-muted-foreground")
-            }
-          >
-            {phase === "live" ? clock(elapsed) : clock(busy ? remaining : PROCESS_MS / 1000)}
-          </p>
-
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-            <TradeSetupDialog
-              platform={platformText}
-              tradeDuration={tradeDuration}
-              onTradeDuration={setTradeDuration}
-              disabled={busy || phase === "live"}
-            />
-            <Button onClick={start} size="lg" disabled={busy || phase === "live"}>
-              {busy ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
-              {busy ? "جاري التهيئة والتفكير…" : "بدء التهيئة والتحليل"}
-            </Button>
-            {phase !== "idle" && (
-              <Button variant="secondary" size="lg" onClick={endSession} className="gold-ring">
-                <Square className="size-4" />
-                إنهاء الجلسة
-              </Button>
-            )}
-          </div>
-        </section>
-
-        {error && !result && (
-          <section className="panel border-bear/50 p-4 text-center">
-            <p className="text-xs tracking-widest text-muted-foreground">حالة التحليل</p>
-            <p className="mt-1 text-sm text-bear">{error}</p>
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              لم يتم إصدار أي إشارة، ولم تُفتح الجلسة. الصور محفوظة كما هي — اضغط «بدء التهيئة
-              والتحليل» لإعادة المحاولة.
-            </p>
-          </section>
-        )}
-
-
-
+        {/* مربع المعلومات والجدول */}
         {result && (
-          <section className="tv-screen neon-frame p-5">
+          <section className="tv-screen neon-frame p-4 sm:p-5">
             <div className="animate-scan pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-primary/10 to-transparent" />
             <div className="pointer-events-none absolute bottom-3 left-3 z-10 opacity-70">
               <OrbitEmblem active compact />
@@ -551,8 +472,14 @@ function Home() {
 
               <p className="mt-4 text-sm text-muted-foreground">{result.summary}</p>
 
-              <div className="mt-4">
+              {/* الجدولان بنفس الصفحة بتنسيق متناغم */}
+              <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <ProjectionChart points={result.projection ?? []} direction={result.direction} />
+                <ProjectionTable
+                  points={result.projection ?? []}
+                  direction={result.direction}
+                  asset={assetText}
+                />
               </div>
 
               <div className="mt-4 text-center">
@@ -576,6 +503,101 @@ function Home() {
           onPatch={patchShot}
           disabled={busy}
         />
+
+        {error && !result && (
+          <section className="panel border-bear/50 p-4 text-center">
+            <p className="text-xs tracking-widest text-muted-foreground">حالة التحليل</p>
+            <p className="mt-1 text-sm text-bear">{error}</p>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              لم يتم إصدار أي إشارة، ولم تُفتح الجلسة. الصور محفوظة كما هي — اضغط «بدء التهيئة
+              والتحليل» لإعادة المحاولة.
+            </p>
+          </section>
+        )}
+
+        {/* مربع بدء الجلسة — في الأسفل، بحجم فاخر ومضغوط */}
+        <section
+          className={
+            "panel neon-frame gold-ring " + (phase === "live" ? "p-3 sm:p-4" : "p-4 sm:p-5")
+          }
+        >
+          <div className="flex flex-col items-center gap-4 sm:flex-row-reverse sm:justify-between">
+            <div className="flex items-center gap-3">
+              {phase !== "live" && (
+                <div className="hidden sm:block">
+                  <OrbitEmblem active={phase !== "idle"} />
+                </div>
+              )}
+              {sessionOver && result && (
+                <div className="hidden sm:block">
+                  <OrbitEmblem active compact />
+                </div>
+              )}
+              <div className="text-center sm:text-right">
+                <p className="text-[11px] tracking-widest text-muted-foreground">
+                  {phase === "processing"
+                    ? "نافذة التهيئة والتفكير"
+                    : phase === "waiting"
+                      ? "اللحظة الأخيرة"
+                      : sessionOver
+                        ? "انتهى زمن الجلسة"
+                        : phase === "live"
+                          ? "الجلسة جارية"
+                          : error
+                            ? "تعذّر إصدار الإشارة"
+                            : "جاهز للتهيئة"}
+                </p>
+                <p
+                  className={
+                    "font-mono text-4xl leading-none " +
+                    (phase === "live"
+                      ? "text-bull"
+                      : busy
+                        ? "text-primary"
+                        : "text-muted-foreground")
+                  }
+                >
+                  {phase === "live"
+                    ? clock(elapsed)
+                    : clock(busy ? remaining : PROCESS_MS / 1000)}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+              <TradeSetupDialog
+                platform={platformText}
+                tradeDuration={tradeDuration}
+                onTradeDuration={setTradeDuration}
+                disabled={busy || phase === "live"}
+              />
+              <Button onClick={start} size="lg" disabled={busy || phase === "live"}>
+                {busy ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
+                {busy ? "جاري التهيئة والتفكير…" : "بدء التهيئة والتحليل"}
+              </Button>
+              {phase !== "idle" && (
+                <Button variant="secondary" size="lg" onClick={endSession} className="gold-ring">
+                  <Square className="size-4" />
+                  إنهاء الجلسة
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <p className="mt-3 text-center text-[11px] text-muted-foreground sm:text-right">
+            {phase === "processing"
+              ? "معالجة الصور وحساب السرعة والتسارع وبناء التوقع"
+              : phase === "waiting"
+                ? "النموذج ما زال يقرأ الصور، ستظهر الإشارة لحظة جهوزها"
+                : sessionOver
+                  ? "هذا مسار التوقع الكامل كما صدر لحظة الإشارة"
+                  : phase === "live"
+                    ? "افتح صفقتك الآن وفق الإشارة الصادرة"
+                    : error
+                      ? "راجع الرسالة أعلاه ثم أعد المحاولة"
+                      : "ارفع الصور بهدوء، حدّد مدة الصفقة، ثم اضغط بدء التهيئة والتحليل"}
+          </p>
+        </section>
 
         <p className="text-center text-[11px] text-muted-foreground">
           التطبيق لا يفتح أو يغلق أو يعدّل أي صفقة. القرار النهائي للمستخدم.
