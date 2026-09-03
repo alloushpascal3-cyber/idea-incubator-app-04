@@ -268,7 +268,7 @@ export async function analyzeSequence(input: AnalyzeInput): Promise<AnalysisResu
   const w = settings.weights;
 
   const prompt = `أنت نظام تحليل سكالبينغ تحليلي بحت (لا تنفيذ صفقات، لا شراء ولا بيع).
-الأصل: ${asset} | المنصة: ${settings.platform}
+الزوج واسم المنصة غير مثبّتين: اقرأهما من نفس الصور (عنوان الشارت وشعار المنصة) وأعدهما في detectedAsset و detectedPlatform، وإن لم يظهرا بوضوح فاستخدم "unknown".
 مدة الصفقة: ${settings.tradeDuration} دقيقة | مدة الدراسة: ${settings.studyDuration} ثانية
 الفريمات المطلوبة: ${settings.timeframes.join(", ")}
 عدد الشموع لحساب السرعة: ${settings.speedCandles}
