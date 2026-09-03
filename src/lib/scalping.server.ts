@@ -245,6 +245,8 @@ const SCHEMA = `{
   "direction": "up|down|none",
   "confidence": 0-100,
   "summary": "سطر واحد",
+  "detectedAsset": "الزوج كما هو مكتوب في الصورة أو unknown",
+  "detectedPlatform": "اسم المنصة كما يظهر في الصورة أو unknown",
   "currentPrice": "نص",
   "structure": "correction|reversal|trend-continuation|unclear",
   "structureNote": "نص",
