@@ -138,6 +138,15 @@ export type AnalysisResult = {
   indicators: { name: string; reading: string; bias: Direction }[];
   sequence: { from: string; to: string; change: string }[];
   scoreBreakdown: { priceAction: number; speed: number; alignment: number; indicators: number };
+  /** قراءة كل معيار مستقلة عن الأوزان (0-100) مع اتجاهه، تُوزن على السيرفر بأوزان المستخدم */
+  components?: {
+    priceAction: ComponentReading;
+    speed: ComponentReading;
+    alignment: ComponentReading;
+    indicators: ComponentReading;
+  };
+  /** الأوزان الفعلية المستخدمة في حساب الثقة (بعد التطبيع إلى 100) */
+  weightsApplied?: Weights;
   confidenceUp: string[];
   confidenceDown: string[];
   projection: { t: number; price: number; label?: string }[];
