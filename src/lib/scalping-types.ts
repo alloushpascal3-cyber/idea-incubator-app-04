@@ -96,6 +96,8 @@ export type ChartShot = {
 
 export type Direction = "up" | "down" | "none";
 
+export type ComponentReading = { bias: Direction; score: number; note?: string };
+
 export type Zone = {
   label: string;
   rangeLow: string;
