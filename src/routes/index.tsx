@@ -414,194 +414,198 @@ function Home() {
 
       <NewsTicker items={ticker} />
 
-      <main className="mx-auto max-w-5xl space-y-5 px-4 py-6">
-        {/* مربع المعلومات والجدول */}
+      <main className="mx-auto max-w-5xl space-y-4 px-4 py-4">
+        {/* صفحة الجلسة: الزوج والثقة ثم الرسم البياني ثم الجدول */}
         {result && (
-          <section className="tv-screen neon-frame p-4 sm:p-5">
-            <div className="animate-scan pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-primary/10 to-transparent" />
-            <div className="pointer-events-none absolute bottom-3 left-3 z-10 opacity-70">
-              <OrbitEmblem active compact />
-            </div>
-            <div className="relative">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="text-right">
-                  <p className="text-[11px] tracking-widest text-muted-foreground">الأصل المقروء</p>
-                  <p className="gold-text text-2xl font-bold sm:text-3xl">{assetText}</p>
+          <>
+            <section className="tv-screen neon-frame p-3 sm:p-4">
+              <div className="animate-scan pointer-events-none absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-primary/10 to-transparent" />
+              <div className="relative">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                  <div className="min-w-0 text-right">
+                    <p className="text-[10px] tracking-widest text-muted-foreground">الأصل المقروء</p>
+                    <p className="gold-text truncate text-xl font-bold sm:text-2xl">{assetText}</p>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-[10px] tracking-widest text-muted-foreground">التوصية</p>
+                    <p className={"text-xl font-bold sm:text-2xl " + dirColor}>{dirText}</p>
+                  </div>
                 </div>
-                <div className="text-left">
-                  <p className="text-[11px] tracking-widest text-muted-foreground">التوصية</p>
-                  <p className={"text-2xl font-bold sm:text-3xl " + dirColor}>{dirText}</p>
-                </div>
-              </div>
 
-              <div className="mt-4">
-                <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
-                  <span>نسبة الثقة</span>
-                  <span className="font-mono text-base text-primary">{result.confidence}%</span>
+                <div className="mt-2.5">
+                  <div className="mb-1 flex items-center justify-between text-[10px] text-muted-foreground">
+                    <span>نسبة الثقة</span>
+                    <span className="font-mono text-sm text-primary">{result.confidence}%</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-secondary/60">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-primary to-bull transition-all"
+                      style={{ width: `${result.confidence}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-secondary/60">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-primary to-bull transition-all"
-                    style={{ width: `${result.confidence}%` }}
+
+                <div className="mt-2.5 grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
+                  <Stat label="السعر الحالي" value={result.currentPrice} tone="text-foreground" />
+                  <Stat label="نسبة السرعة" value={`×${result.speed.ratio}`} tone="text-chart-4" />
+                  <Stat
+                    label="الهيكل"
+                    value={
+                      result.structure === "reversal"
+                        ? "انعكاس"
+                        : result.structure === "correction"
+                          ? "تصحيح"
+                          : result.structure === "trend-continuation"
+                            ? "استمرار"
+                            : "غير واضح"
+                    }
+                    tone="text-primary"
+                  />
+                  <Stat
+                    label="كفاية الزمن"
+                    value={result.arrival.sufficient ? "كافٍ" : "غير كافٍ"}
+                    tone={result.arrival.sufficient ? "text-bull" : "text-bear"}
                   />
                 </div>
-              </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
-                <Stat label="السعر الحالي" value={result.currentPrice} tone="text-foreground" />
-                <Stat label="نسبة السرعة" value={`×${result.speed.ratio}`} tone="text-chart-4" />
-                <Stat
-                  label="الهيكل"
-                  value={
-                    result.structure === "reversal"
-                      ? "انعكاس"
-                      : result.structure === "correction"
-                        ? "تصحيح"
-                        : result.structure === "trend-continuation"
-                          ? "استمرار"
-                          : "غير واضح"
-                  }
-                  tone="text-primary"
-                />
-                <Stat
-                  label="كفاية الزمن"
-                  value={result.arrival.sufficient ? "كافٍ" : "غير كافٍ"}
-                  tone={result.arrival.sufficient ? "text-bull" : "text-bear"}
-                />
-              </div>
+                <p className="mt-2.5 text-xs text-muted-foreground">{result.summary}</p>
 
-              <p className="mt-4 text-sm text-muted-foreground">{result.summary}</p>
-
-              {/* الجدولان بنفس الصفحة بتنسيق متناغم */}
-              <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <ProjectionChart points={result.projection ?? []} direction={result.direction} />
-                <ProjectionTable
-                  points={result.projection ?? []}
-                  direction={result.direction}
-                  asset={assetText}
-                />
-              </div>
-
-              <div className="mt-4 text-center">
-                <Button variant="secondary" size="sm" onClick={() => setShowDetails((v) => !v)}>
-                  <ChevronDown
-                    className={"size-4 transition-transform " + (showDetails ? "rotate-180" : "")}
+                {/* الرسم البياني ثم جدول المعلومات في الأعلى */}
+                <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                  <ProjectionChart points={result.projection ?? []} direction={result.direction} />
+                  <ProjectionTable
+                    points={result.projection ?? []}
+                    direction={result.direction}
+                    asset={assetText}
                   />
-                  عرض التحليل الكامل
-                </Button>
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                  <Button variant="secondary" size="sm" onClick={() => setShowDetails((v) => !v)}>
+                    <ChevronDown
+                      className={"size-4 transition-transform " + (showDetails ? "rotate-180" : "")}
+                    />
+                    عرض التحليل الكامل
+                  </Button>
+                  <span className="font-mono text-xs text-bull">
+                    {sessionOver ? "انتهى زمن الجلسة" : `زمن الجلسة ${clock(elapsed)}`}
+                  </span>
+                </div>
               </div>
+            </section>
+
+            {showDetails && <AnalysisDetails result={result} />}
+
+            {/* زر إنهاء الجلسة فقط — يعود بالمستخدم للصفحة الأساسية */}
+            <div className="flex justify-center">
+              <Button variant="secondary" size="lg" onClick={endSession} className="gold-ring">
+                <Square className="size-4" />
+                إنهاء الجلسة
+              </Button>
             </div>
-          </section>
+          </>
         )}
 
-        {result && showDetails && <AnalysisDetails result={result} />}
-
-        <ShotUploader
-          shots={shots}
-          onAdd={addShots}
-          onRemove={removeShot}
-          onPatch={patchShot}
-          disabled={busy}
-        />
-
-        {error && !result && (
-          <section className="panel border-bear/50 p-4 text-center">
-            <p className="text-xs tracking-widest text-muted-foreground">حالة التحليل</p>
-            <p className="mt-1 text-sm text-bear">{error}</p>
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              لم يتم إصدار أي إشارة، ولم تُفتح الجلسة. الصور محفوظة كما هي — اضغط «بدء التهيئة
-              والتحليل» لإعادة المحاولة.
-            </p>
-          </section>
-        )}
-
-        {/* مربع بدء الجلسة — في الأسفل، بحجم فاخر ومضغوط */}
-        <section
-          className={
-            "panel neon-frame gold-ring " + (phase === "live" ? "p-3 sm:p-4" : "p-4 sm:p-5")
-          }
-        >
-          <div className="flex flex-col items-center gap-4 sm:flex-row-reverse sm:justify-between">
-            <div className="flex items-center gap-3">
-              {phase !== "live" && (
-                <div className="hidden sm:block">
-                  <OrbitEmblem active={phase !== "idle"} />
-                </div>
-              )}
-              {sessionOver && result && (
-                <div className="hidden sm:block">
-                  <OrbitEmblem active compact />
-                </div>
-              )}
-              <div className="text-center sm:text-right">
-                <p className="text-[11px] tracking-widest text-muted-foreground">
-                  {phase === "processing"
-                    ? "نافذة التهيئة والتفكير"
-                    : phase === "waiting"
-                      ? "اللحظة الأخيرة"
-                      : sessionOver
-                        ? "انتهى زمن الجلسة"
-                        : phase === "live"
-                          ? "الجلسة جارية"
+        {/* الصفحة الأساسية: العداد والأزرار ثم جدول رفع الصور */}
+        {!result && (
+          <>
+            <section
+              className={"panel neon-frame gold-ring " + (busy ? "p-3 sm:p-4" : "p-4 sm:p-5")}
+            >
+              <div className="flex flex-col items-center gap-3 sm:flex-row-reverse sm:justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="hidden sm:block">
+                    <OrbitEmblem active={busy} />
+                  </div>
+                  <div className="text-center sm:text-right">
+                    <p className="text-[10px] tracking-widest text-muted-foreground">
+                      {phase === "processing"
+                        ? "نافذة التهيئة والتفكير"
+                        : phase === "waiting"
+                          ? "اللحظة الأخيرة"
                           : error
                             ? "تعذّر إصدار الإشارة"
-                            : "جاهز للتهيئة"}
-                </p>
-                <p
-                  className={
-                    "font-mono text-4xl leading-none " +
-                    (phase === "live"
-                      ? "text-bull"
-                      : busy
-                        ? "text-primary"
-                        : "text-muted-foreground")
-                  }
-                >
-                  {phase === "live"
-                    ? clock(elapsed)
-                    : clock(busy ? remaining : PROCESS_MS / 1000)}
-                </p>
+                            : "عداد التطبيق"}
+                    </p>
+                    <p
+                      className={
+                        "font-mono text-3xl leading-none sm:text-4xl " +
+                        (busy ? "text-primary" : "text-muted-foreground")
+                      }
+                    >
+                      {clock(busy ? remaining : PROCESS_MS / 1000)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <TradeSetupDialog
+                    platform={platformText}
+                    tradeDuration={tradeDuration}
+                    onTradeDuration={setTradeDuration}
+                    disabled={busy}
+                  />
+                  <Button onClick={start} size="lg" disabled={busy}>
+                    {busy ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Play className="size-4" />
+                    )}
+                    {busy ? "جاري التحليل…" : "التحليل وبدء الصفقة"}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    onClick={refreshKey}
+                    disabled={keyBusy || busy}
+                    className={
+                      keyBusy
+                        ? "animate-pulse border border-primary bg-primary/25 text-primary shadow-[0_0_18px_hsl(var(--primary)/0.6)]"
+                        : ""
+                    }
+                  >
+                    <KeyRound className={"size-4 " + (keyBusy ? "animate-spin" : "")} />
+                    {keyBusy ? "جاري البحث عن مفتاح متاح…" : "تحديث مفتاح API"}
+                  </Button>
+                </div>
               </div>
-            </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
-              <TradeSetupDialog
-                platform={platformText}
-                tradeDuration={tradeDuration}
-                onTradeDuration={setTradeDuration}
-                disabled={busy || phase === "live"}
-              />
-              <Button onClick={start} size="lg" disabled={busy || phase === "live"}>
-                {busy ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
-                {busy ? "جاري التهيئة والتفكير…" : "بدء التهيئة والتحليل"}
-              </Button>
-              {phase !== "idle" && (
-                <Button variant="secondary" size="lg" onClick={endSession} className="gold-ring">
-                  <Square className="size-4" />
-                  إنهاء الجلسة
-                </Button>
-              )}
-            </div>
-          </div>
-
-          <p className="mt-3 text-center text-[11px] text-muted-foreground sm:text-right">
-            {phase === "processing"
-              ? "معالجة الصور وحساب السرعة والتسارع وبناء التوقع"
-              : phase === "waiting"
-                ? "النموذج ما زال يقرأ الصور، ستظهر الإشارة لحظة جهوزها"
-                : sessionOver
-                  ? "هذا مسار التوقع الكامل كما صدر لحظة الإشارة"
-                  : phase === "live"
-                    ? "افتح صفقتك الآن وفق الإشارة الصادرة"
+              <p className="mt-2.5 text-center text-[11px] text-muted-foreground sm:text-right">
+                {phase === "processing"
+                  ? "معالجة الصور وحساب السرعة والتسارع وبناء التوقع"
+                  : phase === "waiting"
+                    ? "النموذج ما زال يقرأ الصور، ستظهر الإشارة لحظة جهوزها"
                     : error
-                      ? "راجع الرسالة أعلاه ثم أعد المحاولة"
-                      : "ارفع الصور بهدوء، حدّد مدة الصفقة، ثم اضغط بدء التهيئة والتحليل"}
-          </p>
-        </section>
+                      ? "راجع الرسالة أدناه ثم أعد المحاولة"
+                      : "حدّث المفتاح، هيّئ الصفقة، ارفع الصور، ثم اضغط التحليل وبدء الصفقة"}
+              </p>
+            </section>
+
+            {error && (
+              <section className="panel border-bear/50 p-3 text-center">
+                <p className="text-[11px] tracking-widest text-muted-foreground">حالة التحليل</p>
+                <p className="mt-1 text-sm text-bear">{error}</p>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  لم يتم إصدار أي إشارة، ولم تُفتح الجلسة. الصور محفوظة كما هي — اضغط «التحليل وبدء
+                  الصفقة» لإعادة المحاولة.
+                </p>
+              </section>
+            )}
+
+            <ShotUploader
+              shots={shots}
+              onAdd={addShots}
+              onRemove={removeShot}
+              onPatch={patchShot}
+              disabled={busy}
+            />
+          </>
+        )}
 
         <p className="text-center text-[11px] text-muted-foreground">
           التطبيق لا يفتح أو يغلق أو يعدّل أي صفقة. القرار النهائي للمستخدم.
         </p>
+
       </main>
     </div>
   );
