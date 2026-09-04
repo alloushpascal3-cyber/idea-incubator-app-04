@@ -257,6 +257,12 @@ const SCHEMA = `{
   "indicators": [{"name":"RSI","reading":"نص","bias":"up|down|none"}],
   "sequence": [{"from":"T0","to":"T15","change":"نص"}],
   "scoreBreakdown": {"priceAction":0,"speed":0,"alignment":0,"indicators":0},
+  "components": {
+    "priceAction": {"bias":"up|down|none","score":0-100,"note":"نص"},
+    "speed": {"bias":"up|down|none","score":0-100,"note":"نص"},
+    "alignment": {"bias":"up|down|none","score":0-100,"note":"نص"},
+    "indicators": {"bias":"up|down|none","score":0-100,"note":"نص"}
+  },
   "confidenceUp": ["نص"],
   "confidenceDown": ["نص"],
   "projection": [{"t":0,"price":0,"label":"اختياري"}],
