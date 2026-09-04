@@ -25,3 +25,9 @@ export const reactivateGeminiKey = createServerFn({ method: "POST" })
     const { reactivateKey } = await import("./gemini-keys.server");
     return { keys: await reactivateKey(data.slot) };
   });
+
+export const refreshGeminiKey = createServerFn({ method: "POST" }).handler(async () => {
+  const { refreshAvailableKey } = await import("./gemini-keys.server");
+  return refreshAvailableKey();
+});
+
