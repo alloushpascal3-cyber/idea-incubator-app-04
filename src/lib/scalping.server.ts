@@ -269,6 +269,70 @@ const SCHEMA = `{
   "headlines": ["نص"]
 }`;
 
+const WEIGHT_KEYS = ["priceAction", "speed", "alignment", "indicators"] as const;
+
+function clampScore(n: unknown): number {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return 0;
+  return Math.max(0, Math.min(100, v));
+}
+
+function signOf(bias: Direction | undefined): number {
+  if (bias === "up") return 1;
+  if (bias === "down") return -1;
+  return 0;
+}
+
+/**
+ * الأوزان التي أدخلها المستخدم هي المرجع الوحيد: نأخذ قراءة كل معيار (0-100)
+ * كما أعادها النموذج ونضربها بنسبة المستخدم بعد تطبيعها إلى 100 مجموعًا.
+ */
+function applyUserWeights(result: AnalysisResult, settings: Settings): AnalysisResult {
+  const entered = settings.weights;
+  const total = WEIGHT_KEYS.reduce((sum, k) => sum + Math.max(0, Number(entered[k]) || 0), 0);
+  if (total <= 0) return result;
+
+  const weights = {} as Weights;
+  for (const k of WEIGHT_KEYS) {
+    weights[k] = (Math.max(0, Number(entered[k]) || 0) * 100) / total;
+  }
+
+  const breakdown = { priceAction: 0, speed: 0, alignment: 0, indicators: 0 };
+  let signed = 0;
+  let magnitude = 0;
+
+  for (const k of WEIGHT_KEYS) {
+    const reading = result.components?.[k];
+    const score = reading
+      ? clampScore(reading.score)
+      : weights[k] > 0
+        ? clampScore((clampScore(result.scoreBreakdown?.[k]) * 100) / weights[k])
+        : 0;
+    const bias = reading?.bias ?? result.direction;
+    const contribution = (weights[k] * score) / 100;
+
+    breakdown[k] = Math.round(contribution);
+    magnitude += contribution;
+    signed += contribution * signOf(bias);
+  }
+
+  const confidence = Math.round(Math.max(0, Math.min(100, Math.abs(signed))));
+  const direction: Direction = signed > 0 ? "up" : signed < 0 ? "down" : "none";
+
+  return {
+    ...result,
+    direction: magnitude === 0 ? "none" : direction,
+    confidence,
+    scoreBreakdown: breakdown,
+    weightsApplied: {
+      priceAction: Math.round(weights.priceAction),
+      speed: Math.round(weights.speed),
+      alignment: Math.round(weights.alignment),
+      indicators: Math.round(weights.indicators),
+    },
+  };
+}
+
 export async function analyzeSequence(input: AnalyzeInput): Promise<AnalysisResult> {
   const { settings } = input;
   const w = settings.weights;
