@@ -177,3 +177,70 @@ export async function hasStoredKeys(): Promise<boolean> {
     return false;
   }
 }
+
+/** Lightweight liveness probe: never returns or logs the key itself. */
+async function probeKey(apiKey: string): Promise<Response> {
+  return fetch(
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "ping" }] }] }),
+    },
+  );
+}
+
+export type KeyRefreshResult = {
+  slot: number | null;
+  keys: KeyView[];
+  message: string;
+};
+
+/**
+ * Re-tests every stored key (including ones parked on quota/invalid) and marks
+ * the first working one as available so the next analysis uses it.
+ */
+export async function refreshAvailableKey(): Promise<KeyRefreshResult> {
+  await refreshCooldowns();
+  const { data } = await supabaseAdmin
+    .from("gemini_keys")
+    .select("id,slot,label,masked,api_key,status,cooldown_until,updated_at")
+    .order("slot", { ascending: true });
+  const rows = (data ?? []) as Row[];
+
+  if (rows.length === 0) {
+    return { slot: null, keys: [], message: "لا توجد مفاتيح محفوظة — أضف مفتاحاً من صفحة الإعدادات" };
+  }
+
+  for (const row of rows) {
+    try {
+      const res = await probeKey(row.api_key);
+      if (res.ok) {
+        await markStatus(row.id, "available");
+        return {
+          slot: row.slot,
+          keys: await listKeyViews(),
+          message: `المفتاح رقم ${row.slot} متاح وجاهز للتحليل`,
+        };
+      }
+      if (res.status === 429) {
+        await markStatus(row.id, "quota", QUOTA_COOLDOWN_MINUTES);
+        continue;
+      }
+      if (res.status === 400 || res.status === 401 || res.status === 403) {
+        await markStatus(row.id, "invalid");
+        continue;
+      }
+      await markStatus(row.id, "paused", 5);
+    } catch {
+      await markStatus(row.id, "paused", 5);
+    }
+  }
+
+  return {
+    slot: null,
+    keys: await listKeyViews(),
+    message: "كل المفاتيح مستنفدة أو غير صالحة حالياً — حدّثها من صفحة الإعدادات أو أعد المحاولة لاحقاً",
+  };
+}
+
