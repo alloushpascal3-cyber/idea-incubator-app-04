@@ -162,19 +162,24 @@ export function AnalysisDetails({ result }: { result: AnalysisResult }) {
         </ul>
       </Section>
 
-      <Section title="توزيع درجة الثقة">
+      <Section title="توزيع درجة الثقة (بأوزانك)">
         <ul className="space-y-2 text-xs">
           {(
             [
-              ["سلوك السعر والمناطق", result.scoreBreakdown.priceAction],
-              ["السرعة والتسارع والزمن", result.scoreBreakdown.speed],
-              ["توافق الفريمات", result.scoreBreakdown.alignment],
-              ["المؤشرات", result.scoreBreakdown.indicators],
+              ["سلوك السعر والمناطق", result.scoreBreakdown.priceAction, result.weightsApplied?.priceAction],
+              ["السرعة والتسارع والزمن", result.scoreBreakdown.speed, result.weightsApplied?.speed],
+              ["توافق الفريمات", result.scoreBreakdown.alignment, result.weightsApplied?.alignment],
+              ["المؤشرات", result.scoreBreakdown.indicators, result.weightsApplied?.indicators],
             ] as const
-          ).map(([label, value]) => (
+          ).map(([label, value, weight]) => (
             <li key={label}>
               <div className="flex justify-between">
-                <span>{label}</span>
+                <span>
+                  {label}
+                  {typeof weight === "number" ? (
+                    <span className="text-muted-foreground"> — وزن {weight}%</span>
+                  ) : null}
+                </span>
                 <span className="font-mono">{value}</span>
               </div>
               <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">

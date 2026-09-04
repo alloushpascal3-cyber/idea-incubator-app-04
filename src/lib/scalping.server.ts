@@ -1,4 +1,12 @@
-import type { AiProvider, AnalysisResult, Settings, TimeSlot, Timeframe } from "./scalping-types";
+import type {
+  AiProvider,
+  AnalysisResult,
+  Direction,
+  Settings,
+  TimeSlot,
+  Timeframe,
+  Weights,
+} from "./scalping-types";
 
 const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const GOOGLE_API = "https://generativelanguage.googleapis.com/v1beta/models";
@@ -257,11 +265,81 @@ const SCHEMA = `{
   "indicators": [{"name":"RSI","reading":"نص","bias":"up|down|none"}],
   "sequence": [{"from":"T0","to":"T15","change":"نص"}],
   "scoreBreakdown": {"priceAction":0,"speed":0,"alignment":0,"indicators":0},
+  "components": {
+    "priceAction": {"bias":"up|down|none","score":0-100,"note":"نص"},
+    "speed": {"bias":"up|down|none","score":0-100,"note":"نص"},
+    "alignment": {"bias":"up|down|none","score":0-100,"note":"نص"},
+    "indicators": {"bias":"up|down|none","score":0-100,"note":"نص"}
+  },
   "confidenceUp": ["نص"],
   "confidenceDown": ["نص"],
   "projection": [{"t":0,"price":0,"label":"اختياري"}],
   "headlines": ["نص"]
 }`;
+
+const WEIGHT_KEYS = ["priceAction", "speed", "alignment", "indicators"] as const;
+
+function clampScore(n: unknown): number {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return 0;
+  return Math.max(0, Math.min(100, v));
+}
+
+function signOf(bias: Direction | undefined): number {
+  if (bias === "up") return 1;
+  if (bias === "down") return -1;
+  return 0;
+}
+
+/**
+ * الأوزان التي أدخلها المستخدم هي المرجع الوحيد: نأخذ قراءة كل معيار (0-100)
+ * كما أعادها النموذج ونضربها بنسبة المستخدم بعد تطبيعها إلى 100 مجموعًا.
+ */
+function applyUserWeights(result: AnalysisResult, settings: Settings): AnalysisResult {
+  const entered = settings.weights;
+  const total = WEIGHT_KEYS.reduce((sum, k) => sum + Math.max(0, Number(entered[k]) || 0), 0);
+  if (total <= 0) return result;
+
+  const weights = {} as Weights;
+  for (const k of WEIGHT_KEYS) {
+    weights[k] = (Math.max(0, Number(entered[k]) || 0) * 100) / total;
+  }
+
+  const breakdown = { priceAction: 0, speed: 0, alignment: 0, indicators: 0 };
+  let signed = 0;
+  let magnitude = 0;
+
+  for (const k of WEIGHT_KEYS) {
+    const reading = result.components?.[k];
+    const score = reading
+      ? clampScore(reading.score)
+      : weights[k] > 0
+        ? clampScore((clampScore(result.scoreBreakdown?.[k]) * 100) / weights[k])
+        : 0;
+    const bias = reading?.bias ?? result.direction;
+    const contribution = (weights[k] * score) / 100;
+
+    breakdown[k] = Math.round(contribution);
+    magnitude += contribution;
+    signed += contribution * signOf(bias);
+  }
+
+  const confidence = Math.round(Math.max(0, Math.min(100, Math.abs(signed))));
+  const direction: Direction = signed > 0 ? "up" : signed < 0 ? "down" : "none";
+
+  return {
+    ...result,
+    direction: magnitude === 0 ? "none" : direction,
+    confidence,
+    scoreBreakdown: breakdown,
+    weightsApplied: {
+      priceAction: Math.round(weights.priceAction),
+      speed: Math.round(weights.speed),
+      alignment: Math.round(weights.alignment),
+      indicators: Math.round(weights.indicators),
+    },
+  };
+}
 
 export async function analyzeSequence(input: AnalyzeInput): Promise<AnalysisResult> {
   const { settings } = input;
@@ -281,9 +359,9 @@ export async function analyzeSequence(input: AnalyzeInput): Promise<AnalysisResu
 4) الزمن المتوقع للوصول: T=D/V بسرعة فعّالة (الحالية + الحديثة + المتوسط)، وقارنه بالزمن المتاح (${settings.tradeDuration * 60} ثانية). إن كان أطول فالسرعة غير كافية وتُخفَض الثقة.
 5) قارن الصور المتتابعة T0→T15→T30→T45 وارصد تغيّر الاتجاه والسرعة والتسارع وظهور المناطق والشموع.
 6) الفريمات الأعلى للسياق، والأقرب لمدة الصفقة لتوقيت الدخول (وزن أعلى للأقرب).
-7) المؤشرات للتأكيد فقط وبحد أقصى ${w.indicators}% ولا تتجاوز 25%. عند تعارض المؤشر مع السعر: الأولوية للسعر.
-8) أوزان الثقة: سلوك السعر والمناطق ${w.priceAction}%، السرعة والتسارع والزمن ${w.speed}%، توافق الفريمات ${w.alignment}%، المؤشرات ${w.indicators}%. أعد كل جزء في scoreBreakdown كنقاط من وزنه.
-9) إذا كانت المعطيات متناقضة أو الثقة أقل من ${settings.minConfidence}% فاختر direction = "none" (لا أفضلية).
+7) المؤشرات للتأكيد فقط. عند تعارض المؤشر مع السعر: الأولوية للسعر.
+8) الصور مصدر استنتاج فقط: استخرج منها المعطيات (الهيكل، المناطق، السرعة، التسارع، قراءات المؤشرات) ثم ابنِ التوقع على هذه المعطيات المستنتجة لا على شكل الصورة.
+9) لا توزن المعايير بنفسك: أعد في components لكل معيار (priceAction, speed, alignment, indicators) اتجاهه bias وقوة قراءته score من 0 إلى 100 مستقلة تمامًا عن أي نسب. النظام هو من يضرب هذه القراءات بنسب المستخدم: سلوك السعر ${w.priceAction}%، السرعة والزمن ${w.speed}%، توافق الفريمات ${w.alignment}%، المؤشرات ${w.indicators}%. اجعل scoreBreakdown مجرد نسخة أولية؛ القيمة النهائية تُحسب حسابيًا.
 10) projection: 12-16 نقطة تمثل مسار السعر المتوقع خلال مدة الصفقة بناءً على السرعة والتسارع وزمن الوصول للمناطق (t = ثوانٍ من الصفر، price = مستوى سعري رقمي واقعي)، مع label على النقاط المهمة مثل "مقاومة" أو "ارتداد متوقع". هذا توقع وليس سعرًا حقيقيًا.
 11) headlines: 5-7 عناوين عربية قصيرة تصلح لشريط إخباري متحرك تلخّص الاتجاه والثقة والمناطق والسرعة.
 
@@ -320,7 +398,7 @@ ${SCHEMA}`;
     raw = await callAi("google/gemini-2.5-flash", messages, input.ai);
   }
 
-  const result = parseJson<AnalysisResult>(raw);
+  const result = applyUserWeights(parseJson<AnalysisResult>(raw), settings);
   if (result.confidence < settings.minConfidence) result.direction = "none";
   return result;
 }
