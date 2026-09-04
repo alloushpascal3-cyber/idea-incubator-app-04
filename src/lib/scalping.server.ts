@@ -1,4 +1,12 @@
-import type { AiProvider, AnalysisResult, Settings, TimeSlot, Timeframe } from "./scalping-types";
+import type {
+  AiProvider,
+  AnalysisResult,
+  Direction,
+  Settings,
+  TimeSlot,
+  Timeframe,
+  Weights,
+} from "./scalping-types";
 
 const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const GOOGLE_API = "https://generativelanguage.googleapis.com/v1beta/models";
