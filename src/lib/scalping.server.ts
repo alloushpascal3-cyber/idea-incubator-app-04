@@ -326,7 +326,7 @@ ${SCHEMA}`;
     raw = await callAi("google/gemini-2.5-flash", messages, input.ai);
   }
 
-  const result = parseJson<AnalysisResult>(raw);
+  const result = applyUserWeights(parseJson<AnalysisResult>(raw), settings);
   if (result.confidence < settings.minConfidence) result.direction = "none";
   return result;
 }
