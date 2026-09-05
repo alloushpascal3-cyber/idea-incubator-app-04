@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronDown, Loader2, Play, Square } from "lucide-react";
+import { ChevronDown, KeyRound, Loader2, Play, Square } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -14,6 +14,7 @@ import { TradeSetupDialog } from "@/components/scalping/TradeSetupDialog";
 import { Button } from "@/components/ui/button";
 import { friendlyText } from "@/lib/ai-errors";
 import { analyzeChartSequence, classifyChartShots } from "@/lib/scalping.functions";
+import { refreshGeminiKey } from "@/lib/gemini-keys.functions";
 import {
   type AnalysisResult,
   type ChartShot,
@@ -88,6 +89,20 @@ function Home() {
   const { settings, loaded } = useSettings();
   const classify = useServerFn(classifyChartShots);
   const analyze = useServerFn(analyzeChartSequence);
+  const refreshKeyFn = useServerFn(refreshGeminiKey);
+  const [keyBusy, setKeyBusy] = useState(false);
+  const refreshKey = useCallback(async () => {
+    setKeyBusy(true);
+    try {
+      const r = await refreshKeyFn({});
+      if (r.slot) toast.success(r.message);
+      else toast.error(r.message);
+    } catch (e) {
+      toast.error(friendlyText(e));
+    } finally {
+      setKeyBusy(false);
+    }
+  }, [refreshKeyFn]);
 
   const [asset, setAsset] = useState("EUR/USD");
   const [tradeDuration, setTradeDuration] = useState(5);
