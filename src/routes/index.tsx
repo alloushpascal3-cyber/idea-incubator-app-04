@@ -14,6 +14,7 @@ import { TradeSetupDialog } from "@/components/scalping/TradeSetupDialog";
 import { Button } from "@/components/ui/button";
 import { friendlyText } from "@/lib/ai-errors";
 import { analyzeChartSequence, classifyChartShots } from "@/lib/scalping.functions";
+import { refreshGeminiKey } from "@/lib/gemini-keys.functions";
 import {
   type AnalysisResult,
   type ChartShot,
