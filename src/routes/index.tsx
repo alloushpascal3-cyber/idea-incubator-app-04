@@ -88,6 +88,20 @@ function Home() {
   const { settings, loaded } = useSettings();
   const classify = useServerFn(classifyChartShots);
   const analyze = useServerFn(analyzeChartSequence);
+  const refreshKeyFn = useServerFn(refreshGeminiKey);
+  const [keyBusy, setKeyBusy] = useState(false);
+  const refreshKey = useCallback(async () => {
+    setKeyBusy(true);
+    try {
+      const r = await refreshKeyFn({});
+      if (r.slot) toast.success(r.message);
+      else toast.error(r.message);
+    } catch (e) {
+      toast.error(friendlyText(e));
+    } finally {
+      setKeyBusy(false);
+    }
+  }, [refreshKeyFn]);
 
   const [asset, setAsset] = useState("EUR/USD");
   const [tradeDuration, setTradeDuration] = useState(5);
